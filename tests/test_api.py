@@ -42,3 +42,26 @@ def test_dashboard_served():
     page = client.get("/")
     assert page.status_code == 200
     assert "Pinned Inference on Flop" in page.text
+
+
+def test_fetch_only_agent_lanes():
+    get_lab.cache_clear()
+    client = TestClient(create_app())
+    skill = client.get("/skill.md")
+    assert skill.status_code == 200
+    assert "pin1" in skill.text
+    card = client.get("/.well-known/agent.json").json()
+    assert card["conventions"]["tclk_rail"] == "flop-htlc"
+    assert card["trust"]["contracts_on_flop"] is False
+    caps = client.get("/pin/capabilities").json()
+    assert caps["coordination"] == "technocore"
+    artifact_id = caps["artifacts"][0]["artifact_id"]
+    quote = client.get(f"/g/quote/{artifact_id}/interactive/T1/32/48").json()
+    assert quote["usd_micros"] > 0
+    job = client.get("/g/agent-job/8b-stock").json()
+    assert job["status"] == "paid"
+    assert job["tclk_revealed"] is True
+    assert job["frames"][0].startswith("pin1 ")
+    room = client.get("/r/pin-jobs")
+    assert room.status_code == 200
+    assert "pin1 " in room.text

@@ -45,6 +45,7 @@ from pin.transcript import (
     toploc_leaves,
     verify_leaf0,
 )
+from pin.venue import Venue
 from pin.watcher import Watcher, WatcherReport
 
 Attack = Literal["", "model_swap", "template_swap", "seed_ignore", "leaf0_lie", "sla_miss"]
@@ -104,6 +105,7 @@ class PinLab:
         self.leaves_by_job: dict[str, list[dict[str, Any]]] = {}
         self.jobs: dict[str, JobOutcome] = {}
         self.engine_profiles = sorted({a.engine_profile for a in self.named_artifacts.values()})
+        self.venue = Venue()
 
     def capabilities(self) -> dict[str, Any]:
         return {
@@ -113,6 +115,9 @@ class PinLab:
             "engine_profiles": self.engine_profiles,
             "miner_pubkey": self.miner_pubkey,
             "contracts_on_flop": False,
+            "coordination": "technocore",
+            "money": "tclk1+flop-htlc",
+            "settlement": "flop-session",
         }
 
     def make_quote(self, request: QuoteRequest) -> Quote:

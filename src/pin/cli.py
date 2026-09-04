@@ -81,3 +81,18 @@ def hash_artifact(path: Path) -> None:
 
     artifact = Artifact.model_validate_json(path.read_text(encoding="utf-8"))
     typer.echo(artifact.artifact_id)
+
+
+@app.command("agent-demo")
+def agent_demo(
+    artifact_key: str = "8b-stock",
+    attack: str = "",
+) -> None:
+    """Fetch-shaped two-agent job: pin1 frames, Flop session, tclk reveal iff PIN ok."""
+    from pin.agent_flow import run_agent_job
+    from pin.lab import PinLab
+
+    lab = PinLab()
+    transcript = run_agent_job(lab, artifact_key=artifact_key, attack=attack)
+    typer.echo(json.dumps(transcript.as_dict(), indent=2))
+    raise typer.Exit(0 if transcript.revealed else 1)

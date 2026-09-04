@@ -2,16 +2,18 @@
 
 from __future__ import annotations
 
+import json
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated
 
 from fastapi import Body, FastAPI, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 
+from pin.agent_flow import run_agent_job
 from pin.lab import PinLab
-from pin.models import JobSpec, QuoteRequest, Tier
+from pin.models import JobSpec, QuoteRequest, SlaClass, Tier
 
 STATIC = Path(__file__).parent / "static"
 
@@ -132,6 +134,52 @@ def create_app() -> FastAPI:
             "usd_invoice_micros": rec.usd_invoice_micros,
             "pin_ok": rec.paid and not rec.sla_miss,
         }
+
+    @app.get("/skill.md", response_class=PlainTextResponse)
+    def skill() -> str:
+        return (STATIC / "skill.md").read_text(encoding="utf-8")
+
+    @app.get("/llms.txt", response_class=PlainTextResponse)
+    def llms() -> str:
+        return (STATIC / "llms.txt").read_text(encoding="utf-8")
+
+    @app.get("/.well-known/agent.json")
+    def agent_card() -> dict:
+        return json.loads((STATIC / "agent.json").read_text(encoding="utf-8"))
+
+    @app.get("/g/quote/{artifact_id}/{sla}/{tier}/{n_in}/{n_out}")
+    def get_quote(artifact_id: str, sla: SlaClass, tier: Tier, n_in: int, n_out: int) -> dict:
+        lab = get_lab()
+        try:
+            return lab.make_quote(
+                QuoteRequest(
+                    artifact_id=artifact_id,
+                    sla_class=sla,
+                    tier=tier,
+                    n_in=n_in,
+                    n_out=n_out,
+                )
+            ).model_dump(mode="json")
+        except KeyError as exc:
+            raise HTTPException(404, str(exc)) from exc
+
+    @app.get("/g/agent-job/{artifact_key}")
+    def agent_job(artifact_key: str, attack: str = "") -> dict:
+        """Fetch-only hello-world: pin1 frames + Flop session + tclk reveal."""
+        lab = get_lab()
+        if artifact_key not in lab.named_artifacts:
+            raise HTTPException(404, "unknown artifact_key")
+        transcript = run_agent_job(lab, artifact_key=artifact_key, attack=attack, venue=lab.venue)
+        return transcript.as_dict()
+
+    @app.get("/r/{room}", response_class=PlainTextResponse)
+    def read_room(room: str, since: int = 0) -> str:
+        return get_lab().venue.render_room(room, since=since)
+
+    @app.get("/r/{room}/say/{nick}/{text}", response_class=PlainTextResponse)
+    def say_room(room: str, nick: str, text: str) -> str:
+        rec = get_lab().venue.say(room, nick, text, signed=False)
+        return f"{rec.seq}\t~{rec.nick}\t{rec.text}\n"
 
     return app
 

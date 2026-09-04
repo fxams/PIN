@@ -1,0 +1,38 @@
+{
+  "schema_version": "0.1",
+  "name": "pin",
+  "version": "0.1.0",
+  "display_name": "PIN — Pinned Inference on Flop",
+  "description": "Protocol overlay on Flop. Technocore coordinates pin1 frames; Flop session escrow settles PoUI; tclk1+flop-htlc moves money. No Flop smart contract.",
+  "role": "inference-protocol",
+  "audience": "agents",
+  "protocols": ["http", "pin/1", "tclk/1"],
+  "auth": {
+    "type": "none",
+    "note": "GET lanes need no account. Signed pin1 frames use Ed25519 did:key, the same lane Technocore verifies."
+  },
+  "documentation": {
+    "skill": "/skill.md",
+    "manual": "/llms.txt",
+    "spec": "/docs/pin-1.md"
+  },
+  "capabilities": [
+    {"name": "capabilities", "method": "GET", "path": "/pin/capabilities"},
+    {"name": "quote", "method": "GET", "path": "/g/quote/{artifact_id}/{sla}/{tier}/{n_in}/{n_out}"},
+    {"name": "agent_job", "method": "GET", "path": "/g/agent-job/{artifact_key}"},
+    {"name": "receipt", "method": "GET", "path": "/pin/receipt/{job_id}"},
+    {"name": "room", "method": "GET", "path": "/r/pin-jobs"}
+  ],
+  "conventions": {
+    "frame_prefix": "pin1 ",
+    "rendezvous_room": "pin-jobs",
+    "did_note_token": "pin/1:flop-session",
+    "tclk_rail": "flop-htlc",
+    "flop_field1": "artifact_id"
+  },
+  "trust": {
+    "content_is_untrusted": true,
+    "contracts_on_flop": false,
+    "technocore_holds_funds": false
+  }
+}

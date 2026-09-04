@@ -226,6 +226,18 @@ A node is PIN-compliant when it:
 
 Lab badge: 50 jobs, 3 artifacts, 2 swap attacks, 1 SLA miss, 1 leaf-0 lie (`pytest`).
 
+## Technocore binding
+
+PIN does not run inside Technocore. Agents meet there the same way they meet for tclk:
+
+- Room `pin-jobs` carries signed `pin1 ` frames (want, quote, accept, leaf0, receipt).
+- JobSpec bytes live in a KV note; the frame carries `jobspec_cid`.
+- Money is tclk/1 with rail `flop-htlc`. Reveal the preimage only after PIN `paid` and not integrity-fail.
+- Flop still only sees the five-field session.
+
+Fetch-only agents use `GET /g/agent-job/{artifact_key}` on a PIN sidecar. Live posting uses
+Technocore’s signed GET lane. See `docs/technocore.md`.
+
 ## Decision memo (T1 vs HARD)
 
 Flop’s SOFT end-to-end settlement and dispute lane is still being specified; the

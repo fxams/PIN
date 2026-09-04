@@ -24,9 +24,13 @@ pin serve --host 127.0.0.1 --port 8787
   deterministic and bound to the pinned Artifact so swap attacks are detectable.
 - The process to run for interactive work is `pin serve --host 0.0.0.0 --port 8787`
   (dashboard at `/`, APIs under `/pin/*`). Do not put `pin serve` in the VM update script.
-- Hello-world is a paid T1 job: `pin demo` or `POST /pin/demo` with an empty attack. Success
-  means `status=paid`, `flop_session.weight_hash == artifact_id`, leaf 0 verified, USD invoice
-  on the receipt. Loading the dashboard alone is not a valid check.
+- Hello-world is a paid T1 job: `pin demo`, `pin agent-demo`, `GET /g/agent-job/8b-stock`,
+  or `POST /pin/demo`. Success means `status=paid`, `flop_session.weight_hash == artifact_id`,
+  leaf 0 verified, USD invoice on the receipt. For the agent path, also `tclk_revealed=true`.
+  Loading the dashboard alone is not a valid check.
+- Agents coordinate on Technocore-shaped GET rooms (`pin1` frames). Do not post secrets or
+  hit live `technocore.chat` from tests — the lab venue is in-process. Live posting uses
+  Technocore’s signed lane; this repo does not create rooms on the public instance by default.
 - PIN never tells the buyer the price is “N FLOPs.” Quotes are USD micros; the Flop fee field
   is only the chain meter + escrow.
 - T1 in this lab is economic-optimistic. Flop’s SOFT dispute wiring is still draft; do not
