@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PIN lab — Pinned Inference on Flop</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --card: #151b2e;
+      --ink: #e8edf7;
+      --muted: #93a0b8;
+      --accent: #7cf0c2;
+      --warn: #ffb020;
+      --bad: #ff6b7a;
+      --line: #2a334d;
+      font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+    }
+    body { margin: 0; background: var(--bg); color: var(--ink); }
+    header { padding: 28px 32px 8px; }
+    h1 { margin: 0; font-size: 28px; letter-spacing: -0.03em; }
+    .sub { color: var(--muted); margin-top: 6px; max-width: 720px; line-height: 1.45; }
+    main { padding: 16px 32px 48px; display: grid; gap: 16px; }
+    .row { display: flex; flex-wrap: wrap; gap: 10px; }
+    button {
+      background: var(--accent); color: #062016; border: 0; border-radius: 8px;
+      padding: 10px 14px; font-weight: 700; cursor: pointer;
+    }
+    button.secondary { background: #2a334d; color: var(--ink); }
+    button.danger { background: var(--bad); color: #2a0610; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+    h2 { margin: 0 0 10px; font-size: 15px; color: var(--accent); text-transform: uppercase; letter-spacing: 0.08em; }
+    pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-size: 12px; line-height: 1.45; color: var(--ink); }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { color: var(--muted); font-weight: 600; }
+    .ok { color: var(--accent); }
+    .bad { color: var(--bad); }
+    .warn { color: var(--warn); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>PIN — Pinned Inference on Flop</h1>
+    <p class="sub">
+      Protocol overlay, not a fork. Flop moves FLOP and stores a proof hash.
+      PIN defines what was requested, what counts as the same job tomorrow,
+      how many dollars it cost, whether it was late, and who may challenge the difference.
+      No Flop smart contracts.
+    </p>
+  </header>
+  <main>
+    <div class="row">
+      <button id="honest">Run honest T1 job</button>
+      <button id="swap" class="danger">Red-team: 70B pin / 8B run</button>
+      <button id="sla" class="secondary">SLA miss</button>
+      <button id="leaf0" class="secondary">Leaf-0 lie</button>
+    </div>
+    <div class="grid">
+      <section class="card">
+        <h2>Flop five-field envelope</h2>
+        <table>
+          <tr><th>Flop field</th><th>PIN meaning</th></tr>
+          <tr><td>Model-weight hash</td><td>artifact_id (full pin, not weights-only)</td></tr>
+          <tr><td>Max latency</td><td>SLA deadline; TTFB also in transcript</td></tr>
+          <tr><td>FLOPs</td><td>Flop-required meter, not the buyer’s price</td></tr>
+          <tr><td>Confidentiality</td><td>false → T0/T1/T2; true → T3/HARD</td></tr>
+          <tr><td>Fee</td><td>FLOP escrow from broker USD quote</td></tr>
+        </table>
+      </section>
+      <section class="card">
+        <h2>Node capabilities</h2>
+        <pre id="caps">loading…</pre>
+      </section>
+    </div>
+    <section class="card">
+      <h2>Last job</h2>
+      <p id="status">No job yet. Run an honest T1 job — that is the hello-world: pin, quote in USD, fill Flop’s five fields, co-sign leaf 0, settle a receipt a third party can verify.</p>
+      <pre id="out"></pre>
+    </section>
+  </main>
+  <script>
+    async function loadCaps() {
+      const r = await fetch("/pin/capabilities");
+      const j = await r.json();
+      document.getElementById("caps").textContent = JSON.stringify(j, null, 2);
+    }
+    async function run(attack, artifactKey) {
+      document.getElementById("status").textContent = "Running…";
+      const r = await fetch("/pin/demo", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ attack, artifact_key: artifactKey || "70b-stock", max_new_tokens: 48 })
+      });
+      const j = await r.json();
+      const ok = j.status === "paid";
+      const el = document.getElementById("status");
+      el.className = ok ? "ok" : (j.status === "sla_refund" ? "warn" : "bad");
+      el.textContent = j.status + " — USD micros " + j.usd_invoice_micros + " — job " + j.job_id;
+      document.getElementById("out").textContent = JSON.stringify(j, null, 2);
+    }
+    document.getElementById("honest").onclick = () => run("", "8b-stock");
+    document.getElementById("swap").onclick = () => run("model_swap", "70b-stock");
+    document.getElementById("sla").onclick = () => run("sla_miss", "8b-stock");
+    document.getElementById("leaf0").onclick = () => run("leaf0_lie", "8b-stock");
+    loadCaps();
+  </script>
+</body>
+</html>
