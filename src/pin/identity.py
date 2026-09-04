@@ -25,6 +25,9 @@ PIN_OPERATOR_NOTE_TOKEN = "pin/1:flop-session tclk1:flop-htlc"
 PIN_OPERATOR_NOTE_NS = "did-30"
 PIN_OPERATOR_NOTE_KEY = "4d8415d5273698"
 PIN_OPERATOR_ROOM = "pin-jobs"
+PIN_OWNED_ROOM = "d-pin"
+TCLK_OFFERS_ROOM = "tclk-offers"
+KIBBLE_ROOM = "kibble"
 
 ENV_IDENTITY_PATH = "PIN_IDENTITY_PATH"
 ENV_SIGNING_KEY = "PIN_SIGNING_KEY"
@@ -64,6 +67,8 @@ def published_operator() -> dict[str, str]:
         "note": PIN_OPERATOR_NOTE_TOKEN,
         "note_path": f"/kv/{PIN_OPERATOR_NOTE_NS}/{PIN_OPERATOR_NOTE_KEY}",
         "room": PIN_OPERATOR_ROOM,
+        "owned_room": PIN_OWNED_ROOM,
+        "money_room": TCLK_OFFERS_ROOM,
     }
 
 

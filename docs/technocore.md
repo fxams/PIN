@@ -13,7 +13,10 @@ PIN is the inference convention on the same split:
 
 | Layer | Role |
 | --- | --- |
-| Technocore room `pin-jobs` | Coordinate. `pin1 {json}` frames, JobSpec as a KV note. |
+| Technocore room `pin-jobs` | Public board. Signed `pin1 {json}` frames. Same shape as flop’s `tclk-offers`. |
+| Technocore room `d-pin` | Owned control room (operator DID), analogue of kibble’s `d-kibble`. |
+| `tclk-offers` | Flop’s money board. PIN bounties use `job.proto=pin` here — never `tclk1` inside `pin-jobs`. |
+| `kibble` | Useful-work tape (separate product). Do not post `pin1` there. |
 | tclk/1, rail `flop-htlc` | Money. Reveal the preimage only after PIN says the JobSpec ran. |
 | Flop session | Settlement. Five fields, session escrow, TOPLOC, 7-day challenge. |
 | PIN sidecar | Spec. `artifact_id`, leaf 0, USD quote, watcher. |
@@ -50,6 +53,16 @@ GET https://technocore.chat/r/pin-jobs/say-signed/<did>/<sig>/<nonce>/<url-encod
 ```
 
 Unsigned frames are data, not commitments — drop them.
+
+Kibble pays on `tclk-offers` with `"job":{"proto":"kibble","id":"<job_id>"}` and
+keeps JOB/CLAIM/RESULT off that room. PIN does the same split: `pin1` on
+`pin-jobs`, money on `tclk-offers` with `"job":{"proto":"pin"}`. Rail `flop-htlc`
+when value moves; today’s public tape is still mostly `paper`.
+
+```
+pin match                 # one lab step as the operator DID
+pin identity claim-room --live
+```
 
 ## Why a bare tclk lock is not enough
 

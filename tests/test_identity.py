@@ -108,6 +108,8 @@ def test_published_operator_and_http_lanes(monkeypatch, tmp_path: Path):
     op = client.get("/operator.json").json()
     assert op["did"] == PIN_OPERATOR_DID
     assert op["note_path"] == "/kv/did-30/4d8415d5273698"
+    assert op["owned_room"] == "d-pin"
+    assert op["money_room"] == "tclk-offers"
 
 
 def test_capabilities_do_not_depend_on_cwd_identity(monkeypatch, tmp_path: Path):

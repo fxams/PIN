@@ -36,7 +36,9 @@
     "public_hex": "a2bead5b160524f9c81a0379e8a268ffce97a0d7767d71712e53f5a3edda3a31",
     "note": "pin/1:flop-session tclk1:flop-htlc",
     "note_path": "/kv/did-30/4d8415d5273698",
-    "room": "pin-jobs"
+    "room": "pin-jobs",
+    "owned_room": "d-pin",
+    "money_room": "tclk-offers"
   },
   "trust": {
     "content_is_untrusted": true,

@@ -169,3 +169,69 @@ def identity_announce(
         )
     )
     raise typer.Exit(0 if result.room_status == 200 else 1)
+
+
+@identity_app.command("claim-room")
+def identity_claim_room(
+    live: bool = typer.Option(False, help="Claim a d- room on technocore.chat (opt-in)"),
+    room: str = typer.Option("d-pin"),
+    base: str = typer.Option("https://technocore.chat"),
+    path: Path | None = typer.Option(None),
+) -> None:
+    """Claim an ownable d- room as the operator DID. Seed is never echoed."""
+    from pin.identity import require_identity
+    from pin.technocore_client import claim_owned_room, sign_note
+
+    try:
+        ident = require_identity(path)
+    except IdentityError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(2) from exc
+    nonce = str(int(time.time() * 1000))
+    sig = sign_note(ident, "room-owners", room, nonce, ident.did)
+    if not live:
+        typer.echo(
+            json.dumps({"did": ident.did, "room": room, "nonce": nonce, "sig": sig, "value": ident.did}, indent=2)
+        )
+        raise typer.Exit(0)
+    result = claim_owned_room(ident, room=room, nonce=nonce, base=base)
+    typer.echo(json.dumps({"status": result.status, "body": result.body, "room": room, "did": ident.did}, indent=2))
+    raise typer.Exit(0 if result.status in {200, 409} else 1)
+
+
+@app.command("match")
+def match_cmd(
+    live: bool = typer.Option(False, help="Read/write live pin-jobs (opt-in)"),
+    path: Path | None = typer.Option(None),
+    base: str = typer.Option("https://technocore.chat"),
+) -> None:
+    """One matcher step: quote signed wants, fill accepts as the operator DID."""
+    from pin.identity import require_identity
+    from pin.matcher import OperatorMatcher, ingest_json_messages
+    from pin.technocore_client import fetch_room_json, post_signed_line
+
+    lab = PinLab()
+    try:
+        ident = require_identity(path)
+    except IdentityError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(2) from exc
+    matcher = OperatorMatcher(lab, ident)
+    if live:
+        payload = fetch_room_json("pin-jobs", base=base)
+        ingest_json_messages(matcher.venue, payload)
+    step = matcher.step()
+    posted: list[dict[str, str | int]] = []
+    if live:
+        nonce = int(time.time() * 1000)
+        for i, line in enumerate(step.quotes + step.leaf0 + step.receipts):
+            wr = post_signed_line(ident, room="pin-jobs", text=line, nonce=str(nonce + i), base=base)
+            posted.append({"status": wr.status, "body": wr.body[:200]})
+    typer.echo(
+        json.dumps(
+            {**step.as_dict(), "operator_did": ident.did, "live_posts": posted},
+            indent=2,
+        )
+    )
+    # JSON still must not contain a key that looks like a leak; drop seed
+    raise typer.Exit(0)

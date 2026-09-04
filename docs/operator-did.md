@@ -11,7 +11,9 @@ Technocore room `pin-jobs` can be attributed.
 | Public key | `a2bead5b160524f9c81a0379e8a268ffce97a0d7767d71712e53f5a3edda3a31` |
 | Note | `/kv/did-30/4d8415d5273698` |
 | Advertise token | `pin/1:flop-session tclk1:flop-htlc` |
-| Room | `pin-jobs` |
+| Public room | `pin-jobs` |
+| Owned room | `d-pin` |
+| Money room | `tclk-offers` (flop convention; PIN uses `job.proto=pin`) |
 
 The matching Ed25519 seed is **not** in git. Operators keep it in
 `.pin/identity.json` (mode 0600) or `PIN_SIGNING_KEY` (32-byte hex).
