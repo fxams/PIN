@@ -122,7 +122,7 @@ class OperatorMatcher:
             return
         self.quoted[quote_frame.ref] = rebuilt
         if quote_frame.offer_id:
-            self.locks.setdefault(quote_frame.offer_id, mint_hashlock(rebuilt.flop_fee, rail="flop-htlc"))
+            self.locks.setdefault(quote_frame.offer_id, mint_hashlock(rebuilt.flop_fee, rail="paper"))
 
 
     def _quote_want(self, want: Pin1Frame, result: MatchStep) -> str | None:
@@ -163,12 +163,12 @@ class OperatorMatcher:
                 usd_micros=quote.usd_micros,
                 flop_fee=quote.flop_fee,
                 ttl_sec=quote.ttl_sec,
-                rail="flop-htlc",
+                rail="paper",
             )
         )
         self.quoted[want.nonce] = quote
         self.wants[want.nonce] = want
-        self.locks[quote.offer_id] = mint_hashlock(quote.flop_fee, rail="flop-htlc")
+        self.locks[quote.offer_id] = mint_hashlock(quote.flop_fee, rail="paper")
         self.venue.say(PIN_OPERATOR_ROOM, "pin-operator", line, signed=True, did=self.ident.did)
         return line
 

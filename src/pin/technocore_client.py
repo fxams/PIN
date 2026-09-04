@@ -253,6 +253,29 @@ def set_topic(
         return LiveWrite(status=0, body=str(exc), url=url)
 
 
+def post_kv(
+    *,
+    ns: str,
+    key: str,
+    value: str,
+    base: str = DEFAULT_BASE,
+    timeout: float = 60.0,
+    if_absent: bool = False,
+) -> LiveWrite:
+    """World-writable note write. Paper records use this; they hold no value."""
+    origin = base.rstrip("/")
+    url = f"{origin}/kv/{ns}/{key}"
+    payload: dict[str, Any] = {"value": value}
+    if if_absent:
+        payload["if_absent"] = True
+    try:
+        with httpx.Client(timeout=timeout, follow_redirects=True) as client:
+            resp = client.post(url, json=payload)
+        return LiveWrite(status=resp.status_code, body=resp.text[:800], url=url)
+    except httpx.HTTPError as exc:
+        return LiveWrite(status=0, body=str(exc), url=url)
+
+
 def fetch_room_json(
     room: str,
     *,

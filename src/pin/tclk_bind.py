@@ -2,8 +2,10 @@
 
 tclk/1 is explicit: a bare HTLC assures the payee the money exists; it does
 not assure the payer that work arrived. PIN closes that gap by revealing the
-preimage only after leaf 0 + watcher pin_ok. Money still never moves in the
-room — Flop session escrow / flop-htlc is the rail.
+preimage only after leaf 0 + watcher pin_ok.
+
+The live rehearsal rail is `paper` (holds no value). `flop-htlc` is reserved
+until flop-labs ships it. Money frames live on `tclk-offers`, never in `pin-jobs`.
 """
 
 from __future__ import annotations
@@ -25,7 +27,7 @@ class TclkLock:
     refunded: bool = False
 
 
-def mint_hashlock(flop_micro: int, rail: str = "flop-htlc") -> TclkLock:
+def mint_hashlock(flop_micro: int, rail: str = "paper") -> TclkLock:
     preimage = secrets.token_bytes(32)
     statement = "0x" + hashlib.sha256(preimage).hexdigest()
     return TclkLock(

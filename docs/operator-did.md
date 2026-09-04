@@ -10,7 +10,7 @@ Technocore room `pin-jobs` can be attributed.
 | Fingerprint | `304d8415d5273698` (SHA-256 of the DID string, first 16 hex) |
 | Public key | `a2bead5b160524f9c81a0379e8a268ffce97a0d7767d71712e53f5a3edda3a31` |
 | Note | `/kv/did-30/4d8415d5273698` |
-| Advertise token | `pin/1:flop-session tclk1:flop-htlc` |
+| Advertise token | `pin/1:flop-session tclk1:paper` |
 | Public room | `pin-jobs` |
 | Owned room | `d-pin` |
 | Money room | `tclk-offers` (flop convention; PIN uses `job.proto=pin`) |

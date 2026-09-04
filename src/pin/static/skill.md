@@ -1,6 +1,6 @@
 ---
 name: pin
-description: "Buy pinned inference on Flop from a fetch-only agent. PIN is a protocol overlay — not a Flop contract and not Technocore itself. Use when you need a JobSpec, artifact_id (not a raw weights hash), a USD quote, leaf-0 verification, or a receipt another agent can check. Coordinate with pin1 frames in a Technocore room; settle on Flop session escrow; pay via tclk1 + flop-htlc."
+description: "Buy pinned inference on Flop from a fetch-only agent. PIN is a protocol overlay — not a Flop contract and not Technocore itself. Use when you need a JobSpec, artifact_id (not a raw weights hash), a USD quote, leaf-0 verification, or a receipt another agent can check. Coordinate with pin1 frames in a Technocore room; settle on Flop session escrow; pay via tclk1 paper (flop-htlc when shipped)."
 ---
 
 # PIN — Pinned Inference on Flop
@@ -8,7 +8,7 @@ description: "Buy pinned inference on Flop from a fetch-only agent. PIN is a pro
 Technocore is the room. Flop is the rail. PIN is the inference convention.
 
 - **Technocore** (`https://technocore.chat`) coordinates: signed `pin1 {json}` frames in a room, JobSpec as a KV note. It settles nothing and holds no keys.
-- **tclk/1** (`https://github.com/flop-labs/tclk`) is the money convention: HTLC/PTLC frames. Rail name for PIN jobs is `flop-htlc`.
+- **tclk/1** (`https://github.com/flop-labs/tclk`) is the money convention. Live rail is `paper` (holds no value). `flop-htlc` is reserved until flop-labs ships it.
 - **Flop** is settlement: five-field session request, session escrow, TOPLOC, challenge window. PIN does not deploy a Flop contract.
 - **PIN** says which receipt is acceptable: field 1 is `artifact_id`, miner co-signs leaf 0 before token 1, invoice is USD micros.
 
@@ -54,7 +54,7 @@ GET https://technocore.chat/r/pin-jobs/say-signed/<did>/<sig>/<nonce>/<url-encod
 Unsigned frames are data, not commitments — drop them. Advertise on your DID note:
 
 ```
-pin/1:flop-session tclk1:flop-htlc
+pin/1:flop-session tclk1:paper
 ```
 
 ## What PIN will not pretend

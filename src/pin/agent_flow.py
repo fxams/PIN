@@ -1,8 +1,9 @@
 """Two-agent PIN job over Technocore-shaped rooms.
 
 Agent (payer) and miner (payee) never share a POST client. They post pin1
-frames, publish the JobSpec as a KV note, lock FLOP under a tclk hash, and
-only reveal after PIN says the JobSpec ran.
+frames on `pin-jobs`, publish the JobSpec as a KV note, and run a tclk/1
+paper deal on flop's `tclk-offers` room. The paper secret is revealed only
+after PIN says the JobSpec ran.
 """
 
 from __future__ import annotations
@@ -13,9 +14,11 @@ from typing import Any
 
 from pin.did import did_from_private, new_agent_identity
 from pin.frames import Pin1Frame, decode_frame, encode_frame
+from pin.identity import TCLK_OFFERS_ROOM
 from pin.lab import JobOutcome, PinLab
 from pin.models import QuoteRequest
-from pin.tclk_bind import TclkLock, maybe_reveal, mint_hashlock
+from pin.tclk_deal import TclkDeal, open_paper_deal, settle_deal
+from pin.tclk_paper import PaperStore
 from pin.transcript import prompt_commit
 from pin.venue import Venue
 
@@ -29,7 +32,7 @@ class AgentJobTranscript:
     frames: list[str]
     job_id: str
     jobspec_cid: str
-    tclk: TclkLock
+    tclk: TclkDeal
     outcome: JobOutcome
     revealed: str | None
     notes: dict[str, str] = field(default_factory=dict)
@@ -39,14 +42,18 @@ class AgentJobTranscript:
         return {
             "coordination": "technocore-room",
             "room": PIN_JOBS_ROOM,
-            "money": "tclk1 + flop-htlc",
+            "money_room": TCLK_OFFERS_ROOM,
+            "money": "tclk1 + paper",
             "settlement": "flop-session",
             "agent_did": self.agent_did,
             "miner_did": self.miner_did,
             "frames": self.frames,
+            "tclk_frames": self.tclk.frames,
             "job_id": self.job_id,
             "jobspec_cid": self.jobspec_cid,
             "tclk_statement": self.tclk.statement,
+            "tclk_offer_id": self.tclk.offer_id,
+            "tclk_contract": self.tclk.contract,
             "tclk_revealed": bool(self.revealed),
             "status": self.outcome.status.value,
             "usd_invoice_micros": self.outcome.usd_invoice_micros,
@@ -66,6 +73,7 @@ def run_agent_job(
     artifact_key: str = "8b-stock",
     attack: str = "",
     venue: Venue | None = None,
+    now_ms: int = 1_750_000_000_000,
 ) -> AgentJobTranscript:
     venue = venue or lab.venue
     _agent_key, agent_did, _fp = new_agent_identity()
@@ -103,13 +111,21 @@ def run_agent_job(
         usd_micros=quote.usd_micros,
         flop_fee=quote.flop_fee,
         ttl_sec=quote.ttl_sec,
-        rail="flop-htlc",
+        rail="paper",
     )
     jobspec_cid = spec.job_id
-    venue.note_set("pin-jobspec", jobspec_cid, encode_frame(want))  # pointer; full spec is hashed id
+    venue.note_set("pin-jobspec", jobspec_cid, encode_frame(want))
     venue.note_set("pin-jobspec", f"{jobspec_cid}-json", spec.model_dump_json())
 
-    lock = mint_hashlock(quote.flop_fee, rail="flop-htlc")
+    paper = PaperStore()
+    deal = open_paper_deal(
+        payer_did=agent_did,
+        payee_did=miner_did,
+        job_id=spec.job_id,
+        now_ms=now_ms,
+        venue=venue,
+        paper=paper,
+    )
     accept = Pin1Frame(
         type="accept",
         from_did=agent_did,
@@ -117,8 +133,8 @@ def run_agent_job(
         offer_id=quote.offer_id,
         job_id=spec.job_id,
         jobspec_cid=jobspec_cid,
-        tclk_ref=lock.statement,
-        rail="flop-htlc",
+        tclk_ref=deal.offer_id,
+        rail="paper",
     )
 
     frames = [encode_frame(want), encode_frame(quote_frame), encode_frame(accept)]
@@ -149,18 +165,13 @@ def run_agent_job(
             paid=rec.paid,
             sla_miss=rec.sla_miss,
             status=outcome.status.value,
-            tclk_ref=lock.statement,
+            tclk_ref=deal.offer_id,
         )
         frames.extend([encode_frame(leaf0), encode_frame(receipt_frame)])
         venue.say(PIN_JOBS_ROOM, "pin-miner", frames[-2], signed=True, did=miner_did)
         venue.say(PIN_JOBS_ROOM, "pin-miner", frames[-1], signed=True, did=miner_did)
 
-    preimage = maybe_reveal(lock, rec)
-    if preimage:
-        # tclk reveal is a separate convention; we only record that PIN authorized it.
-        venue.note_set("tclk", lock.statement[2:18], "claimed")
-    else:
-        venue.note_set("tclk", lock.statement[2:18], "refunded")
+    preimage = settle_deal(deal, rec, now_ms=now_ms, venue=venue, paper=paper)
 
     return AgentJobTranscript(
         agent_did=agent_did,
@@ -168,7 +179,7 @@ def run_agent_job(
         frames=frames,
         job_id=spec.job_id,
         jobspec_cid=jobspec_cid,
-        tclk=lock,
+        tclk=deal,
         outcome=outcome,
         revealed=preimage,
         notes={"prompt_commit": prompt_commit.__name__},

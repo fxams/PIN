@@ -235,3 +235,32 @@ def match_cmd(
     )
     # JSON still must not contain a key that looks like a leak; drop seed
     raise typer.Exit(0)
+
+
+@app.command("tclk-demo")
+def tclk_demo(
+    live: bool = typer.Option(False, help="Post a paper deal on live tclk-offers (opt-in)"),
+    attack: str = typer.Option("", help="model_swap | sla_miss | …"),
+    path: Path | None = typer.Option(None),
+    base: str = typer.Option("https://technocore.chat"),
+) -> None:
+    """Run a tclk/1 paper deal gated on a PIN receipt. Paper holds no value."""
+    from pin.agent_flow import run_agent_job
+    from pin.identity import require_identity
+    from pin.tclk_deal import run_live_paper_demo
+
+    if not live:
+        lab = PinLab()
+        transcript = run_agent_job(lab, attack=attack)
+        payload = transcript.as_dict()
+        payload["tclk"] = transcript.tclk.as_dict()
+        typer.echo(json.dumps(payload, indent=2))
+        raise typer.Exit(0 if transcript.revealed else 1)
+    try:
+        ident = require_identity(path)
+    except IdentityError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(2) from exc
+    result = run_live_paper_demo(ident, attack=attack, base=base)
+    typer.echo(json.dumps(result, indent=2))
+    raise typer.Exit(0 if result.get("tclk_revealed") else 1)

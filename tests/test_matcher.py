@@ -48,7 +48,7 @@ def test_matcher_quotes_and_fills_as_operator(tmp_path):
             offer_id=offer.offer_id,
             job_id=spec.job_id,
             jobspec_cid=spec.job_id,
-            rail="flop-htlc",
+            rail="paper",
         )
     )
     lab.venue.say("pin-jobs", "agent", accept, signed=True, did=agent_did)

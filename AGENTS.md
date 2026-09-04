@@ -35,7 +35,9 @@ pin serve --host 127.0.0.1 --port 8787
   Never commit `.pin/` or `PIN_SIGNING_KEY`. Identity tests use a temp file, not the
   operator seed. `pin identity show` must never print a seed.
 - `pin match` answers `pin-jobs`. Do not write `tclk1` into `pin-jobs` or `kibble`.
-  Money frames belong on flop's `tclk-offers` with `job.proto=pin`. Owned room is `d-pin`.
+  Money frames belong on flop's `tclk-offers` with `job.proto=pin` and rail `paper`.
+  `flop-htlc` is reserved and does not hold value yet. Owned room is `d-pin`.
+  `pin tclk-demo` is the in-process paper deal; `--live` is opt-in.
 - PIN never tells the buyer the price is “N FLOPs.” Quotes are USD micros; the Flop fee field
   is only the chain meter + escrow.
 - T1 in this lab is economic-optimistic. Flop’s SOFT dispute wiring is still draft; do not

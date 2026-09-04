@@ -120,7 +120,7 @@ class PinLab:
             "miner_pubkey": self.miner_pubkey,
             "contracts_on_flop": False,
             "coordination": "technocore",
-            "money": "tclk1+flop-htlc",
+            "money": "tclk1+paper",
             "settlement": "flop-session",
             "operator_did": operator["did"],
             "operator_fingerprint": operator["fingerprint"],

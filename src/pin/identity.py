@@ -21,7 +21,7 @@ from pin.did import did_from_private, fingerprint
 PIN_OPERATOR_DID = "did:key:z6MkqQYjCW5SKXVoyw7ACcBTuEekQQervRxEn49SyDHkT3d2"
 PIN_OPERATOR_FINGERPRINT = "304d8415d5273698"
 PIN_OPERATOR_PUBLIC_HEX = "a2bead5b160524f9c81a0379e8a268ffce97a0d7767d71712e53f5a3edda3a31"
-PIN_OPERATOR_NOTE_TOKEN = "pin/1:flop-session tclk1:flop-htlc"
+PIN_OPERATOR_NOTE_TOKEN = "pin/1:flop-session tclk1:paper"
 PIN_OPERATOR_NOTE_NS = "did-30"
 PIN_OPERATOR_NOTE_KEY = "4d8415d5273698"
 PIN_OPERATOR_ROOM = "pin-jobs"
