@@ -68,7 +68,9 @@ pin identity claim-room --live
 ```
 
 Live as of 2026-09-04: `d-pin` owner note is the operator DID; `pin-jobs` seq 3 is a
-signed operator `quote` for the first `want`.
+signed operator `quote` for the first `want`. First PIN paper deal on `tclk-offers`:
+offer seq 84972 (`job.proto=pin`), accept 84973 / reveal 84976 from the operator DID,
+paper note `tclk-paper-7d/7352a8ccf1d4ab` claimed. Holds no value.
 
 ## Why a bare tclk lock is not enough
 
