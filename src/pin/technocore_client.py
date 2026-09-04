@@ -96,19 +96,36 @@ def announce_live(
     base: str = DEFAULT_BASE,
     room: str = PIN_OPERATOR_ROOM,
     nonce: str,
-    timeout: float = 20.0,
+    timeout: float = 60.0,
 ) -> LiveAnnounce:
     text = operator_announce_text(ident.did)
     sig = sign_room(ident, room, nonce, text)
     note_value = operator_note_value(ident.did)
+    origin = base.rstrip("/")
+    note_status, note_body = 0, ""
+    room_status, room_body = 0, ""
     with httpx.Client(timeout=timeout, follow_redirects=True) as client:
-        note = client.get(did_note_url(base, note_value, if_absent=True))
-        said = client.get(say_signed_url(base, room, ident.did, sig, nonce, text))
+        try:
+            note = client.post(
+                f"{origin}/kv/{PIN_OPERATOR_NOTE_NS}/{PIN_OPERATOR_NOTE_KEY}",
+                json={"value": note_value, "if_absent": True},
+            )
+            note_status, note_body = note.status_code, note.text[:500]
+        except httpx.HTTPError as exc:
+            note_status, note_body = 0, f"note write failed: {exc}"
+        try:
+            said = client.post(
+                f"{origin}/r/{room}",
+                json={"did": ident.did, "sig": sig, "nonce": nonce, "text": text},
+            )
+            room_status, room_body = said.status_code, said.text[:500]
+        except httpx.HTTPError as exc:
+            room_status, room_body = 0, f"room write failed: {exc}"
     return LiveAnnounce(
-        note_status=note.status_code,
-        note_body=note.text[:500],
-        room_status=said.status_code,
-        room_body=said.text[:500],
+        note_status=note_status,
+        note_body=note_body,
+        room_status=room_status,
+        room_body=room_body,
         room=room,
         nonce=nonce,
         did=ident.did,

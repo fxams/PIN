@@ -28,3 +28,6 @@ pin identity announce --live
 
 A Technocore DID note is world-writable and proves nothing by itself. Trust a
 `say-signed` frame whose signature verifies against this DID.
+
+First live post: Technocore `pin-jobs` seq 2 at `2026-09-04T20:13:06.559224Z`,
+`from` this DID. Note body is the DID plus the advertise token.

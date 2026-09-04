@@ -122,6 +122,41 @@ def test_capabilities_do_not_depend_on_cwd_identity(monkeypatch, tmp_path: Path)
     assert "seed" not in json.dumps(caps)
 
 
+def test_announce_live_posts_note_and_room(tmp_path: Path, monkeypatch):
+    from pin.technocore_client import announce_live
+
+    ident = init_identity(tmp_path / "id.json")
+    calls: list[tuple[str, str, dict]] = []
+
+    class _Resp:
+        def __init__(self, status: int, text: str) -> None:
+            self.status_code = status
+            self.text = text
+
+    class _Client:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args) -> None:
+            return None
+
+        def post(self, url: str, json: dict | None = None):
+            calls.append((url, "POST", json or {}))
+            return _Resp(200, "ok")
+
+    monkeypatch.setattr("pin.technocore_client.httpx.Client", _Client)
+    result = announce_live(ident, base="https://technocore.chat", room="pin-jobs", nonce="1")
+    assert result.note_status == 200
+    assert result.room_status == 200
+    assert len(calls) == 2
+    assert calls[0][0].endswith("/kv/did-30/4d8415d5273698")
+    assert calls[0][2]["if_absent"] is True
+    assert "seed" not in str(calls)
+
+
 def test_cli_show_and_announce_never_print_seed(tmp_path: Path):
     from typer.testing import CliRunner
 
