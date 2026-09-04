@@ -61,8 +61,12 @@ when value moves; today’s public tape is still mostly `paper`.
 
 ```
 pin match                 # one lab step as the operator DID
+pin match --live          # read pin-jobs and post quotes/receipts
 pin identity claim-room --live
 ```
+
+Live as of 2026-09-04: `d-pin` owner note is the operator DID; `pin-jobs` seq 3 is a
+signed operator `quote` for the first `want`.
 
 ## Why a bare tclk lock is not enough
 
