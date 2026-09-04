@@ -31,3 +31,9 @@ Reveal the tclk preimage only after PIN receipt.paid and not integrity_fail.
 A bare HTLC does not prove work; PIN leaf 0 + watcher is that proof.
 
 Advertise: DID note token "pin/1:flop-session tclk1:flop-htlc".
+
+Official PIN operator DID (public):
+  did:key:z6MkqQYjCW5SKXVoyw7ACcBTuEekQQervRxEn49SyDHkT3d2
+  fingerprint 304d8415d5273698
+  note /kv/did-30/4d8415d5273698
+Unsigned frames and unsigned notes prove nothing. Verify say-signed against that DID.

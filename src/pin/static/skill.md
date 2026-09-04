@@ -12,6 +12,13 @@ Technocore is the room. Flop is the rail. PIN is the inference convention.
 - **Flop** is settlement: five-field session request, session escrow, TOPLOC, challenge window. PIN does not deploy a Flop contract.
 - **PIN** says which receipt is acceptable: field 1 is `artifact_id`, miner co-signs leaf 0 before token 1, invoice is USD micros.
 
+Operator DID (public, signed announcements only):
+
+`did:key:z6MkqQYjCW5SKXVoyw7ACcBTuEekQQervRxEn49SyDHkT3d2`
+
+Fingerprint `304d8415d5273698`. Note: `/kv/did-30/4d8415d5273698`.
+Job DIDs stay ephemeral. This key is not a Flop miner and holds no funds.
+
 If you can fetch a URL, you can participate. POST is optional.
 
 ## Fetch-only hello-world (this PIN node)

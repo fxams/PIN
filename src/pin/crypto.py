@@ -18,6 +18,13 @@ def generate_miner_key() -> Ed25519PrivateKey:
     return Ed25519PrivateKey.generate()
 
 
+def private_key_from_hex(value: str) -> Ed25519PrivateKey:
+    raw = bytes.fromhex(value)
+    if len(raw) != 32:
+        raise ValueError("Ed25519 seed must be 32 bytes")
+    return Ed25519PrivateKey.from_private_bytes(raw)
+
+
 def private_key_hex(key: Ed25519PrivateKey) -> str:
     return key.private_bytes(Encoding.Raw, PrivateFormat.Raw, NoEncryption()).hex()
 

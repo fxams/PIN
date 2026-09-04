@@ -3,15 +3,19 @@
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
 
 import typer
 import uvicorn
 
+from pin.identity import IdentityError, default_identity_path, init_identity, load_identity, published_operator
 from pin.lab import PinLab
 from pin.models import Receipt
 
 app = typer.Typer(no_args_is_help=True, add_completion=False, help="PIN — Pinned Inference on Flop")
+identity_app = typer.Typer(no_args_is_help=True, help="Persistent did:key (seed stays off git).")
+app.add_typer(identity_app, name="identity")
 
 
 @app.command()
@@ -96,3 +100,72 @@ def agent_demo(
     transcript = run_agent_job(lab, artifact_key=artifact_key, attack=attack)
     typer.echo(json.dumps(transcript.as_dict(), indent=2))
     raise typer.Exit(0 if transcript.revealed else 1)
+
+
+@identity_app.command("init")
+def identity_init(
+    path: Path | None = typer.Option(None, help="Write here instead of .pin/identity.json"),
+) -> None:
+    """Create a new Ed25519 identity. Refuses to overwrite."""
+    dest = path or default_identity_path()
+    try:
+        ident = init_identity(dest)
+    except IdentityError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(2) from exc
+    typer.echo(json.dumps(ident.public_dict(), indent=2))
+
+
+@identity_app.command("show")
+def identity_show(
+    path: Path | None = typer.Option(None, help="Identity file (never prints the seed)"),
+) -> None:
+    """Print the public DID. Seed is never echoed."""
+    try:
+        ident = load_identity(path)
+    except IdentityError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(2) from exc
+    payload = {"published_operator": published_operator(), "local": None if ident is None else ident.public_dict()}
+    typer.echo(json.dumps(payload, indent=2))
+    if ident is None:
+        raise typer.Exit(1)
+
+
+@identity_app.command("announce")
+def identity_announce(
+    live: bool = typer.Option(False, help="GET the signed lane on technocore.chat (opt-in)"),
+    room: str = typer.Option("pin-jobs"),
+    base: str = typer.Option("https://technocore.chat"),
+    path: Path | None = typer.Option(None),
+) -> None:
+    """Build (or post) a signed operator announcement. Never prints the seed."""
+    from pin.identity import require_identity
+    from pin.technocore_client import announce_live, preview_announce
+
+    try:
+        ident = require_identity(path)
+    except IdentityError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(2) from exc
+    nonce = str(int(time.time() * 1000))
+    if not live:
+        typer.echo(json.dumps(preview_announce(ident, base=base, room=room, nonce=nonce), indent=2))
+        raise typer.Exit(0)
+    result = announce_live(ident, base=base, room=room, nonce=nonce)
+    typer.echo(
+        json.dumps(
+            {
+                "did": result.did,
+                "room": result.room,
+                "nonce": result.nonce,
+                "text": result.text,
+                "note_status": result.note_status,
+                "note_body": result.note_body,
+                "room_status": result.room_status,
+                "room_body": result.room_body,
+            },
+            indent=2,
+        )
+    )
+    raise typer.Exit(0 if result.room_status == 200 else 1)

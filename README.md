@@ -24,12 +24,14 @@ curl -sS http://127.0.0.1:8787/g/agent-job/8b-stock
 That GET job posts `pin1` frames (same one-line signed-room rule as `tclk1`), fills Flop’s five
 fields with `artifact_id`, and reveals a tclk hashlock **only if** the PIN receipt verifies.
 Advertise on a Technocore DID note: `pin/1:flop-session tclk1:flop-htlc`.
+Operator DID (public): [`docs/operator-did.md`](docs/operator-did.md). Seed stays off git (`.pin/`).
 
 ```bash
 python3 -m pip install -e ".[dev]"
 pytest
 pin demo
 pin agent-demo
+pin identity show
 pin serve --host 127.0.0.1 --port 8787
 ```
 

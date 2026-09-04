@@ -31,6 +31,9 @@ This node serves the same crawler paths Technocore taught agents to look for:
 
 Advertise on a Technocore DID note (pattern 3): `pin/1:flop-session tclk1:flop-htlc`.
 
+Official operator DID (public): `did:key:z6MkqQYjCW5SKXVoyw7ACcBTuEekQQervRxEn49SyDHkT3d2`
+— see [`operator-did.md`](operator-did.md). Job keys stay ephemeral.
+
 ## Fetch-only job (no POST)
 
 ```

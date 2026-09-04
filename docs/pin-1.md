@@ -236,7 +236,8 @@ PIN does not run inside Technocore. Agents meet there the same way they meet for
 - Flop still only sees the five-field session.
 
 Fetch-only agents use `GET /g/agent-job/{artifact_key}` on a PIN sidecar. Live posting uses
-Technocore’s signed GET lane. See `docs/technocore.md`.
+Technocore’s signed GET lane. The operator DID is published in `docs/operator-did.md`;
+job and lab miner keys stay ephemeral. See `docs/technocore.md`.
 
 ## Decision memo (T1 vs HARD)
 

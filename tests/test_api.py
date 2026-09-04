@@ -55,6 +55,7 @@ def test_fetch_only_agent_lanes():
     assert card["trust"]["contracts_on_flop"] is False
     caps = client.get("/pin/capabilities").json()
     assert caps["coordination"] == "technocore"
+    assert caps["operator_did"].startswith("did:key:z6Mk")
     artifact_id = caps["artifacts"][0]["artifact_id"]
     quote = client.get(f"/g/quote/{artifact_id}/interactive/T1/32/48").json()
     assert quote["usd_micros"] > 0

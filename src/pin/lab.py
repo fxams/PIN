@@ -108,6 +108,10 @@ class PinLab:
         self.venue = Venue()
 
     def capabilities(self) -> dict[str, Any]:
+        from pin.identity import load_identity, published_operator
+
+        local = load_identity()
+        operator = published_operator()
         return {
             "pin_version": "pin/1",
             "caps": self.caps.canonical_dict(),
@@ -118,6 +122,9 @@ class PinLab:
             "coordination": "technocore",
             "money": "tclk1+flop-htlc",
             "settlement": "flop-session",
+            "operator_did": operator["did"],
+            "operator_fingerprint": operator["fingerprint"],
+            "operator_key_loaded": bool(local and local.is_operator()),
         }
 
     def make_quote(self, request: QuoteRequest) -> Quote:

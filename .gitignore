@@ -10,3 +10,5 @@ build/
 htmlcov/
 *.receipt.json
 .pin-lab/
+.pin/
+*.identity.json

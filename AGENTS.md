@@ -31,6 +31,9 @@ pin serve --host 127.0.0.1 --port 8787
 - Agents coordinate on Technocore-shaped GET rooms (`pin1` frames). Do not post secrets or
   hit live `technocore.chat` from tests — the lab venue is in-process. Live posting uses
   Technocore’s signed lane; this repo does not create rooms on the public instance by default.
+- The published operator DID is public (`docs/operator-did.md`, `GET /operator.json`).
+  Never commit `.pin/` or `PIN_SIGNING_KEY`. Identity tests use a temp file, not the
+  operator seed. `pin identity show` must never print a seed.
 - PIN never tells the buyer the price is “N FLOPs.” Quotes are USD micros; the Flop fee field
   is only the chain meter + escrow.
 - T1 in this lab is economic-optimistic. Flop’s SOFT dispute wiring is still draft; do not

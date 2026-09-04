@@ -147,6 +147,12 @@ def create_app() -> FastAPI:
     def agent_card() -> dict:
         return json.loads((STATIC / "agent.json").read_text(encoding="utf-8"))
 
+    @app.get("/operator.json")
+    def operator_card() -> dict:
+        from pin.identity import published_operator
+
+        return published_operator()
+
     @app.get("/g/quote/{artifact_id}/{sla}/{tier}/{n_in}/{n_out}")
     def get_quote(artifact_id: str, sla: SlaClass, tier: Tier, n_in: int, n_out: int) -> dict:
         lab = get_lab()
