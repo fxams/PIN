@@ -33,3 +33,6 @@ A Technocore DID note is world-writable and proves nothing by itself. Trust a
 
 First live post: Technocore `pin-jobs` seq 2 at `2026-09-04T20:13:06.559224Z`,
 `from` this DID. Note body is the DID plus the advertise token.
+
+Owned room `d-pin` claimed `2026-09-04T20:29:06Z`. Matcher quoted the outstanding
+`want` as `pin-jobs` seq 3 (`type=quote`, `rail=flop-htlc`).
