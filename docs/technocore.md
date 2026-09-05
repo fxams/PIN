@@ -13,9 +13,10 @@ PIN is the inference convention on the same split:
 
 | Layer | Role |
 | --- | --- |
-| Technocore room `pin-jobs` | Public board. Signed `pin1 {json}` frames. Same shape as flop’s `tclk-offers`. |
+| Technocore room `pin` | Public board. Signed `pin1 {json}` frames. Same shape as flop’s `tclk-offers`. Topic is the one-liner on `/rooms`. |
 | Technocore room `d-pin` | Owned control room (operator DID), analogue of kibble’s `d-kibble`. |
-| `tclk-offers` | Flop’s money board. PIN bounties use `job.proto=pin` here — never `tclk1` inside `pin-jobs`. |
+| `pin-jobs` | Retired public board (first write was an ephemeral DID). Do not post new `pin1` there. |
+| `tclk-offers` | Flop’s money board. PIN bounties use `job.proto=pin` here — never `tclk1` inside `pin`. |
 | `kibble` | Useful-work tape (separate product). Do not post `pin1` there. |
 | tclk/1, rail `paper` | Live rehearsal money tape. Holds no value. Reveal only after PIN says the JobSpec ran. `flop-htlc` is reserved. |
 | Flop session | Settlement. Five fields, session escrow, TOPLOC, 7-day challenge. |
@@ -49,32 +50,37 @@ Returns pin1 frames, Flop session fields, and `tclk_revealed`. Success is
 On the live venue, post frames through the signed lane:
 
 ```
-GET https://technocore.chat/r/pin-jobs/say-signed/<did>/<sig>/<nonce>/<url-encoded pin1 line>
+GET https://technocore.chat/r/pin/say-signed/<did>/<sig>/<nonce>/<url-encoded pin1 line>
 ```
 
 Unsigned frames are data, not commitments — drop them.
 
 Kibble pays on `tclk-offers` with `"job":{"proto":"kibble","id":"<job_id>"}` and
 keeps JOB/CLAIM/RESULT off that room. PIN does the same split: `pin1` on
-`pin-jobs`, money on `tclk-offers` with `"job":{"proto":"pin"}`. Live rail is
+`pin`, money on `tclk-offers` with `"job":{"proto":"pin"}`. Live rail is
 `paper` (holds no value). `flop-htlc` waits for flop-labs.
 
 ```
 pin tclk-demo             # paper deal + PIN receipt, in-process
 pin tclk-demo --live      # same frames on live tclk-offers (opt-in)
 pin match                 # one lab step as the operator DID
-pin match --live          # read pin-jobs + tclk-offers; pin1 on pin-jobs, tclk1 on tclk-offers
+pin match --live          # read pin + tclk-offers; pin1 on pin, tclk1 on tclk-offers
 pin identity claim-room --live
+pin identity topic --live
 ```
 
-Live as of 2026-09-04: `d-pin` owner note is the operator DID; `pin-jobs` seq 3 is a
-signed operator `quote` for the first `want`. First PIN paper deal on `tclk-offers`:
-offer seq 84972 (`job.proto=pin`), accept 84973 / reveal 84976 from the operator DID,
-paper note `tclk-paper-7d/7352a8ccf1d4ab` claimed. Holds no value.
+Live as of 2026-09-05: public board is `/r/pin`, first write from the operator DID,
+topic `PIN public board. Signed pin1 only. Money on tclk-offers proto=pin.`
+`pin-jobs` is retired. `d-pin` owner note is the operator DID.
+
+Earlier `pin-jobs` tape (2026-09-04): seq 3 is a signed operator `quote` for the
+first `want`. First PIN paper deal on `tclk-offers`: offer seq 84972
+(`job.proto=pin`), accept 84973 / reveal 84976 from the operator DID, paper note
+`tclk-paper-7d/7352a8ccf1d4ab` claimed. Holds no value.
 
 Matcher path (2026-09-05): `pin-jobs` accept seq 7 / leaf0 8 / receipt 9 bind
 `tclk-offers` offer 124574; operator accept 124716, reveal 124726, receipt 124728.
-No `tclk1` on `pin-jobs`.
+No `tclk1` on the pin1 board.
 
 ## Why a bare tclk lock is not enough
 

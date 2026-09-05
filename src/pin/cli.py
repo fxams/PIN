@@ -9,7 +9,15 @@ from pathlib import Path
 import typer
 import uvicorn
 
-from pin.identity import IdentityError, default_identity_path, init_identity, load_identity, published_operator
+from pin.identity import (
+    PIN_OPERATOR_ROOM,
+    PIN_PUBLIC_TOPIC,
+    IdentityError,
+    default_identity_path,
+    init_identity,
+    load_identity,
+    published_operator,
+)
 from pin.lab import PinLab
 from pin.models import Receipt
 
@@ -135,7 +143,7 @@ def identity_show(
 @identity_app.command("announce")
 def identity_announce(
     live: bool = typer.Option(False, help="GET the signed lane on technocore.chat (opt-in)"),
-    room: str = typer.Option("pin-jobs"),
+    room: str = typer.Option(PIN_OPERATOR_ROOM),
     base: str = typer.Option("https://technocore.chat"),
     path: Path | None = typer.Option(None),
 ) -> None:
@@ -199,9 +207,28 @@ def identity_claim_room(
     raise typer.Exit(0 if result.status in {200, 409} else 1)
 
 
+@identity_app.command("topic")
+def identity_topic(
+    live: bool = typer.Option(False, help="Write /kv/topic/<room> on technocore.chat (opt-in)"),
+    room: str = typer.Option(PIN_OPERATOR_ROOM),
+    text: str = typer.Option(PIN_PUBLIC_TOPIC),
+    base: str = typer.Option("https://technocore.chat"),
+    if_absent: bool = typer.Option(True, help="Refuse if a topic is already set"),
+) -> None:
+    """Set the one-line Technocore room topic shown on /rooms and /humans."""
+    from pin.technocore_client import set_topic
+
+    if not live:
+        typer.echo(json.dumps({"room": room, "text": text, "path": f"/kv/topic/{room}"}, indent=2))
+        raise typer.Exit(0)
+    result = set_topic(room=room, value=text, base=base, if_absent=if_absent)
+    typer.echo(json.dumps({"status": result.status, "body": result.body, "room": room, "text": text}, indent=2))
+    raise typer.Exit(0 if result.status in {200, 409} else 1)
+
+
 @app.command("match")
 def match_cmd(
-    live: bool = typer.Option(False, help="Read/write live pin-jobs (opt-in)"),
+    live: bool = typer.Option(False, help="Read/write live pin room (opt-in)"),
     path: Path | None = typer.Option(None),
     base: str = typer.Option("https://technocore.chat"),
 ) -> None:
@@ -218,7 +245,7 @@ def match_cmd(
         raise typer.Exit(2) from exc
     matcher = OperatorMatcher(lab, ident)
     if live:
-        ingest_json_messages(matcher.venue, fetch_room_json("pin-jobs", base=base))
+        ingest_json_messages(matcher.venue, fetch_room_json(PIN_OPERATOR_ROOM, base=base))
         ingest_json_messages(
             matcher.venue,
             fetch_room_json(TCLK_OFFERS_ROOM, since=None, limit=200, base=base),
@@ -231,8 +258,8 @@ def match_cmd(
         pin_lines = step.quotes + step.leaf0 + step.receipts
         tclk_lines = step.tclk_accepts + step.tclk_settles
         for i, line in enumerate(pin_lines):
-            wr = post_signed_line(ident, room="pin-jobs", text=line, nonce=str(nonce + i), base=base)
-            posted.append({"room": "pin-jobs", "status": wr.status, "body": wr.body[:200]})
+            wr = post_signed_line(ident, room=PIN_OPERATOR_ROOM, text=line, nonce=str(nonce + i), base=base)
+            posted.append({"room": PIN_OPERATOR_ROOM, "status": wr.status, "body": wr.body[:200]})
         nonce += len(pin_lines)
         for i, line in enumerate(tclk_lines):
             wr = post_signed_line(ident, room=TCLK_OFFERS_ROOM, text=line, nonce=str(nonce + i), base=base)

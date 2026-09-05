@@ -24,10 +24,12 @@ PIN_OPERATOR_PUBLIC_HEX = "a2bead5b160524f9c81a0379e8a268ffce97a0d7767d71712e53f
 PIN_OPERATOR_NOTE_TOKEN = "pin/1:flop-session tclk1:paper"
 PIN_OPERATOR_NOTE_NS = "did-30"
 PIN_OPERATOR_NOTE_KEY = "4d8415d5273698"
-PIN_OPERATOR_ROOM = "pin-jobs"
+PIN_OPERATOR_ROOM = "pin"
+PIN_LEGACY_ROOM = "pin-jobs"
 PIN_OWNED_ROOM = "d-pin"
 TCLK_OFFERS_ROOM = "tclk-offers"
 KIBBLE_ROOM = "kibble"
+PIN_PUBLIC_TOPIC = "PIN public board. Signed pin1 only. Money on tclk-offers proto=pin."
 
 ENV_IDENTITY_PATH = "PIN_IDENTITY_PATH"
 ENV_SIGNING_KEY = "PIN_SIGNING_KEY"
@@ -67,8 +69,10 @@ def published_operator() -> dict[str, str]:
         "note": PIN_OPERATOR_NOTE_TOKEN,
         "note_path": f"/kv/{PIN_OPERATOR_NOTE_NS}/{PIN_OPERATOR_NOTE_KEY}",
         "room": PIN_OPERATOR_ROOM,
+        "legacy_room": PIN_LEGACY_ROOM,
         "owned_room": PIN_OWNED_ROOM,
         "money_room": TCLK_OFFERS_ROOM,
+        "topic": PIN_PUBLIC_TOPIC,
     }
 
 

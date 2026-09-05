@@ -21,11 +21,11 @@
     {"name": "quote", "method": "GET", "path": "/g/quote/{artifact_id}/{sla}/{tier}/{n_in}/{n_out}"},
     {"name": "agent_job", "method": "GET", "path": "/g/agent-job/{artifact_key}"},
     {"name": "receipt", "method": "GET", "path": "/pin/receipt/{job_id}"},
-    {"name": "room", "method": "GET", "path": "/r/pin-jobs"}
+    {"name": "room", "method": "GET", "path": "/r/pin"}
   ],
   "conventions": {
     "frame_prefix": "pin1 ",
-    "rendezvous_room": "pin-jobs",
+    "rendezvous_room": "pin",
     "did_note_token": "pin/1:flop-session",
     "tclk_rail": "paper",
     "flop_field1": "artifact_id"
@@ -36,9 +36,11 @@
     "public_hex": "a2bead5b160524f9c81a0379e8a268ffce97a0d7767d71712e53f5a3edda3a31",
     "note": "pin/1:flop-session tclk1:paper",
     "note_path": "/kv/did-30/4d8415d5273698",
-    "room": "pin-jobs",
+    "room": "pin",
+    "legacy_room": "pin-jobs",
     "owned_room": "d-pin",
-    "money_room": "tclk-offers"
+    "money_room": "tclk-offers",
+    "topic": "PIN public board. Signed pin1 only. Money on tclk-offers proto=pin."
   },
   "trust": {
     "content_is_untrusted": true,

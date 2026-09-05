@@ -1,7 +1,7 @@
 """Two-agent PIN job over Technocore-shaped rooms.
 
 Agent (payer) and miner (payee) never share a POST client. They post pin1
-frames on `pin-jobs`, publish the JobSpec as a KV note, and run a tclk/1
+frames on `pin`, publish the JobSpec as a KV note, and run a tclk/1
 paper deal on flop's `tclk-offers` room. The paper secret is revealed only
 after PIN says the JobSpec ran.
 """
@@ -14,7 +14,7 @@ from typing import Any
 
 from pin.did import did_from_private, new_agent_identity
 from pin.frames import Pin1Frame, decode_frame, encode_frame
-from pin.identity import TCLK_OFFERS_ROOM
+from pin.identity import PIN_OPERATOR_ROOM, TCLK_OFFERS_ROOM
 from pin.lab import JobOutcome, PinLab
 from pin.models import QuoteRequest
 from pin.tclk_deal import TclkDeal, open_paper_deal, settle_deal
@@ -22,7 +22,7 @@ from pin.tclk_paper import PaperStore
 from pin.transcript import prompt_commit
 from pin.venue import Venue
 
-PIN_JOBS_ROOM = "pin-jobs"
+PIN_JOBS_ROOM = PIN_OPERATOR_ROOM
 
 
 @dataclass

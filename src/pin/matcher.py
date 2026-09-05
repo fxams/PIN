@@ -1,8 +1,8 @@
 """Operator matcher: answer signed pin1 wants as the published PIN DID.
 
-Public board is Technocore room `pin-jobs` (same shape as flop's `tclk-offers`
+Public board is Technocore room `pin` (same shape as flop's `tclk-offers`
 and the kibble work board). Money frames stay on `tclk-offers` with
-`job.proto=pin` — never as tclk1 lines inside `pin-jobs` or `kibble`.
+`job.proto=pin` — never as tclk1 lines inside `pin` or `kibble`.
 Owned control room is `d-pin`, claimed by the operator DID.
 """
 
@@ -59,7 +59,7 @@ class MatchStep:
 
 
 class OperatorMatcher:
-    """Reads a pin-jobs venue and replies as the operator DID."""
+    """Reads the public `pin` venue and replies as the operator DID."""
 
     def __init__(
         self,

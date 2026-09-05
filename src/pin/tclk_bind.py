@@ -5,7 +5,7 @@ not assure the payer that work arrived. PIN closes that gap by revealing the
 preimage only after leaf 0 + watcher pin_ok.
 
 The live rehearsal rail is `paper` (holds no value). `flop-htlc` is reserved
-until flop-labs ships it. Money frames live on `tclk-offers`, never in `pin-jobs`.
+until flop-labs ships it. Money frames live on `tclk-offers`, never in `pin`.
 """
 
 from __future__ import annotations

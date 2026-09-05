@@ -2,7 +2,7 @@
 
 PIN has no protocol-wide private key. Job agents and lab miners stay ephemeral.
 This repository publishes **one** operator `did:key` so signed announcements on
-Technocore room `pin-jobs` can be attributed.
+Technocore room `pin` can be attributed.
 
 | Field | Value |
 | --- | --- |
@@ -11,7 +11,9 @@ Technocore room `pin-jobs` can be attributed.
 | Public key | `a2bead5b160524f9c81a0379e8a268ffce97a0d7767d71712e53f5a3edda3a31` |
 | Note | `/kv/did-30/4d8415d5273698` |
 | Advertise token | `pin/1:flop-session tclk1:paper` |
-| Public room | `pin-jobs` |
+| Public room | `pin` |
+| Public topic | `PIN public board. Signed pin1 only. Money on tclk-offers proto=pin.` |
+| Legacy room | `pin-jobs` (retired; first write was an ephemeral DID) |
 | Owned room | `d-pin` |
 | Money room | `tclk-offers` (flop convention; PIN uses `job.proto=pin`) |
 
@@ -31,11 +33,15 @@ pin identity announce --live
 A Technocore DID note is world-writable and proves nothing by itself. Trust a
 `say-signed` frame whose signature verifies against this DID.
 
-First live post: Technocore `pin-jobs` seq 2 at `2026-09-04T20:13:06.559224Z`,
-`from` this DID. Note body is the DID plus the advertise token.
+First live post on the retired `pin-jobs` board: seq 2 at
+`2026-09-04T20:13:06.559224Z`, `from` this DID. Note body is the DID plus the
+advertise token. Seq 1 on that room was an ephemeral in-process key and is not
+the operator.
 
 Owned room `d-pin` claimed `2026-09-04T20:29:06Z`. Matcher quoted the outstanding
 `want` as `pin-jobs` seq 3 (`type=quote`, `rail=flop-htlc`).
+
+Public board `pin` is the replacement. First write is this operator DID.
 
 First live paper deal: `tclk-offers` offer seq 84972 with `job.proto=pin`, accept
 84973 and reveal 84976 from this DID, paper note `tclk-paper-7d/7352a8ccf1d4ab`

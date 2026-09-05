@@ -35,7 +35,7 @@ def test_matcher_quotes_and_fills_as_operator(tmp_path):
             max_usd=10_000_000,
         )
     )
-    lab.venue.say("pin-jobs", "agent", want, signed=True, did=agent_did)
+    lab.venue.say("pin", "agent", want, signed=True, did=agent_did)
     quoted = matcher.step()
     assert len(quoted.quotes) == 1
     assert ident.did in quoted.quotes[0]
@@ -54,7 +54,7 @@ def test_matcher_quotes_and_fills_as_operator(tmp_path):
             rail="paper",
         )
     )
-    lab.venue.say("pin-jobs", "agent", accept, signed=True, did=agent_did)
+    lab.venue.say("pin", "agent", accept, signed=True, did=agent_did)
     filled = matcher.step()
     assert len(filled.receipts) == 1
     assert "paid" in filled.receipts[0]
@@ -83,7 +83,7 @@ def test_matcher_fills_ingested_quote_offer_id(tmp_path):
         )
     )
     first = OperatorMatcher(lab, ident)
-    lab.venue.say("pin-jobs", "agent", want, signed=True, did=agent_did)
+    lab.venue.say("pin", "agent", want, signed=True, did=agent_did)
     quoted = first.step()
     offer = decode_frame(quoted.quotes[0])
     later = OperatorMatcher(PinLab(), ident, venue=lab.venue)
@@ -98,7 +98,7 @@ def test_matcher_fills_ingested_quote_offer_id(tmp_path):
             rail="paper",
         )
     )
-    lab.venue.say("pin-jobs", "agent", accept, signed=True, did=agent_did)
+    lab.venue.say("pin", "agent", accept, signed=True, did=agent_did)
     filled = later.step()
     assert filled.receipts
     assert "accept-unknown-offer" not in filled.skipped
@@ -122,7 +122,7 @@ def test_matcher_fills_second_quote_for_same_want(tmp_path):
             max_usd=10_000_000,
         )
     )
-    lab.venue.say("pin-jobs", "agent", want, signed=True, did=agent_did)
+    lab.venue.say("pin", "agent", want, signed=True, did=agent_did)
     quote_a = encode_frame(
         Pin1Frame(
             type="quote",
@@ -151,8 +151,8 @@ def test_matcher_fills_second_quote_for_same_want(tmp_path):
             rail="paper",
         )
     )
-    lab.venue.say("pin-jobs", "op", quote_a, signed=True, did=ident.did)
-    lab.venue.say("pin-jobs", "op", quote_b, signed=True, did=ident.did)
+    lab.venue.say("pin", "op", quote_a, signed=True, did=ident.did)
+    lab.venue.say("pin", "op", quote_b, signed=True, did=ident.did)
     spec = lab.default_spec()
     accept = encode_frame(
         Pin1Frame(
@@ -164,7 +164,7 @@ def test_matcher_fills_second_quote_for_same_want(tmp_path):
             rail="paper",
         )
     )
-    lab.venue.say("pin-jobs", "agent", accept, signed=True, did=agent_did)
+    lab.venue.say("pin", "agent", accept, signed=True, did=agent_did)
     filled = OperatorMatcher(lab, ident).step()
     assert filled.receipts
     assert "accept-unknown-offer" not in filled.skipped
@@ -184,7 +184,7 @@ def test_matcher_skips_unknown_artifact(tmp_path):
             tier="T1",
         )
     )
-    lab.venue.say("pin-jobs", "agent", want, signed=True, did=agent_did)
+    lab.venue.say("pin", "agent", want, signed=True, did=agent_did)
     step = matcher.step()
     assert step.quotes == []
     assert any(s.startswith("unknown-artifact") for s in step.skipped)
@@ -226,7 +226,7 @@ def test_matcher_binds_tclk_offer_and_reveals_on_pin_ok(tmp_path):
             max_usd=10_000_000,
         )
     )
-    lab.venue.say("pin-jobs", "agent", want, signed=True, did=agent_did)
+    lab.venue.say("pin", "agent", want, signed=True, did=agent_did)
     quoted = matcher.step()
     pin_quote = decode_frame(quoted.quotes[0])
     spec = lab.default_spec()
@@ -255,13 +255,13 @@ def test_matcher_binds_tclk_offer_and_reveals_on_pin_ok(tmp_path):
             rail="paper",
         )
     )
-    lab.venue.say("pin-jobs", "agent", accept, signed=True, did=agent_did)
+    lab.venue.say("pin", "agent", accept, signed=True, did=agent_did)
     filled = matcher.step()
     assert len(filled.receipts) == 1
     assert len(filled.tclk_accepts) == 1
     assert len(filled.tclk_settles) == 2
     assert all(line.startswith("tclk1 ") for line in filled.tclk_accepts + filled.tclk_settles)
-    assert not any(rec.text.startswith("tclk1 ") for rec in lab.venue.read("pin-jobs"))
+    assert not any(rec.text.startswith("tclk1 ") for rec in lab.venue.read("pin"))
     assert not any(rec.text.startswith("pin1 ") for rec in lab.venue.read(TCLK_OFFERS_ROOM))
     money = fold_tclk_room(lab.venue)
     assert [frame["type"] for frame in money] == ["offer", "accept", "reveal", "receipt"]
@@ -288,7 +288,7 @@ def test_matcher_does_not_reveal_tclk_on_fraud(tmp_path):
             max_usd=10_000_000,
         )
     )
-    lab.venue.say("pin-jobs", "agent", want, signed=True, did=agent_did)
+    lab.venue.say("pin", "agent", want, signed=True, did=agent_did)
     quoted = matcher.step()
     pin_quote = decode_frame(quoted.quotes[0])
     spec = lab.default_spec(artifact_key="70b-stock")
@@ -316,7 +316,7 @@ def test_matcher_does_not_reveal_tclk_on_fraud(tmp_path):
             rail="paper",
         )
     )
-    lab.venue.say("pin-jobs", "agent", accept, signed=True, did=agent_did)
+    lab.venue.say("pin", "agent", accept, signed=True, did=agent_did)
     filled = matcher.step()
     assert filled.tclk_accepts
     assert filled.tclk_settles == []
@@ -373,7 +373,7 @@ def test_cli_match_live_posts_tclk_only_to_tclk_offers(tmp_path, monkeypatch):
 
         def get(self, url: str, params=None):
             gets.append(url)
-            if url.endswith("/r/pin-jobs"):
+            if url.endswith("/r/pin"):
                 return _Resp(
                     {
                         "messages": [
@@ -392,9 +392,9 @@ def test_cli_match_live_posts_tclk_only_to_tclk_offers(tmp_path, monkeypatch):
     result = runner.invoke(app, ["match", "--live", "--path", str(tmp_path / "op.json")])
     assert result.exit_code == 0
     assert "seed" not in result.stdout
-    assert any(url.endswith("/r/pin-jobs") for url in gets)
+    assert any(url.endswith("/r/pin") for url in gets)
     assert any(url.endswith("/r/tclk-offers") for url in gets)
-    pin_posts = [body.get("text", "") for url, body in posts if url.endswith("/r/pin-jobs")]
+    pin_posts = [body.get("text", "") for url, body in posts if url.endswith("/r/pin")]
     tclk_posts = [body.get("text", "") for url, body in posts if url.endswith("/r/tclk-offers")]
     assert pin_posts
     assert all(text.startswith("pin1 ") for text in pin_posts)

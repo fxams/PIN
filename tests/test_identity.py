@@ -108,8 +108,11 @@ def test_published_operator_and_http_lanes(monkeypatch, tmp_path: Path):
     op = client.get("/operator.json").json()
     assert op["did"] == PIN_OPERATOR_DID
     assert op["note_path"] == "/kv/did-30/4d8415d5273698"
+    assert op["room"] == "pin"
+    assert op["legacy_room"] == "pin-jobs"
     assert op["owned_room"] == "d-pin"
     assert op["money_room"] == "tclk-offers"
+    assert "Signed pin1 only" in op["topic"]
 
 
 def test_capabilities_do_not_depend_on_cwd_identity(monkeypatch, tmp_path: Path):
@@ -177,3 +180,8 @@ def test_cli_show_and_announce_never_print_seed(tmp_path: Path):
     assert "say-signed" in announced.stdout
     refused = runner.invoke(app, ["identity", "init", "--path", str(dest)])
     assert refused.exit_code == 2
+    topic = runner.invoke(app, ["identity", "topic"])
+    assert topic.exit_code == 0
+    assert "seed" not in topic.stdout
+    assert "/kv/topic/pin" in topic.stdout
+    assert "Signed pin1 only" in topic.stdout

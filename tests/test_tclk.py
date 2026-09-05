@@ -150,8 +150,8 @@ def test_agent_job_keeps_tclk_off_pin_jobs():
     assert [frame.type for frame in folded] == ["want", "quote", "accept", "leaf0", "receipt"]
     money = fold_tclk_room(lab.venue)
     assert [frame["type"] for frame in money] == ["offer", "accept", "lock", "reveal", "receipt"]
-    assert lab.venue.read("pin-jobs")
-    assert not any(rec.text.startswith("tclk1 ") for rec in lab.venue.read("pin-jobs"))
+    assert lab.venue.read("pin")
+    assert not any(rec.text.startswith("tclk1 ") for rec in lab.venue.read("pin"))
     assert not any(rec.text.startswith("pin1 ") for rec in lab.venue.read(TCLK_OFFERS_ROOM))
 
     cheated = run_agent_job(PinLab(), artifact_key="70b-stock", attack="model_swap")

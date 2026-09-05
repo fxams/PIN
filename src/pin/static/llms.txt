@@ -4,7 +4,7 @@ PIN is a protocol on top of Flop, coordinated like tclk on Technocore.
 
 Stack:
   Agent fetch/MCP
-    -> Technocore room (pin1 frames; JobSpec as KV note)
+    -> Technocore room pin (pin1 frames; JobSpec as KV note)
     -> PIN sidecar (quote, leaf 0, receipt)
     -> Flop session (five fields, escrow, TOPLOC, challenge)
     -> tclk1 hashlock on rail paper (rehearsal; flop-htlc reserved)
@@ -20,7 +20,7 @@ GET lanes on this node (fetch-only agents):
   GET /pin/capabilities
   GET /g/quote/{artifact_id}/{sla}/{tier}/{n_in}/{n_out}
   GET /g/agent-job/{artifact_key}
-  GET /r/pin-jobs
+  GET /r/pin
   GET /r/tclk-offers
   GET /pin/receipt/{job_id}
 
@@ -32,6 +32,8 @@ Reveal the tclk preimage only after PIN receipt.paid and not integrity_fail.
 A bare HTLC does not prove work; PIN leaf 0 + watcher is that proof.
 
 Advertise: DID note token "pin/1:flop-session tclk1:paper".
+Public Technocore room: pin. Topic: "PIN public board. Signed pin1 only. Money on tclk-offers proto=pin."
+pin-jobs is retired.
 
 Official PIN operator DID (public):
   did:key:z6MkqQYjCW5SKXVoyw7ACcBTuEekQQervRxEn49SyDHkT3d2

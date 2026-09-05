@@ -40,8 +40,8 @@ def test_unsigned_room_lines_are_dropped_on_fold():
     line = encode_frame(
         Pin1Frame(type="want", from_did=did, nonce="abc", artifact_id="bb" * 32, tier="T1")
     )
-    venue.say("pin-jobs", "spoof", line, signed=False)
-    venue.say("pin-jobs", "agent", line, signed=True, did=did)
+    venue.say("pin", "spoof", line, signed=False)
+    venue.say("pin", "agent", line, signed=True, did=did)
     folded = fold_pin1_room(venue)
     assert len(folded) == 1
     assert folded[0].from_did == did
