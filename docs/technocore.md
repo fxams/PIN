@@ -63,7 +63,7 @@ keeps JOB/CLAIM/RESULT off that room. PIN does the same split: `pin1` on
 pin tclk-demo             # paper deal + PIN receipt, in-process
 pin tclk-demo --live      # same frames on live tclk-offers (opt-in)
 pin match                 # one lab step as the operator DID
-pin match --live          # read pin-jobs and post quotes/receipts
+pin match --live          # read pin-jobs + tclk-offers; pin1 on pin-jobs, tclk1 on tclk-offers
 pin identity claim-room --live
 ```
 

@@ -279,13 +279,17 @@ def post_kv(
 def fetch_room_json(
     room: str,
     *,
-    since: int = 0,
+    since: int | None = 0,
     base: str = DEFAULT_BASE,
     timeout: float = 30.0,
     limit: int = 50,
 ) -> dict[str, Any]:
+    """Fetch a room page. Omit `since` to take the latest tail (needed for busy rooms)."""
     origin = base.rstrip("/")
+    params: dict[str, Any] = {"format": "json", "limit": limit}
+    if since is not None:
+        params["since"] = since
     with httpx.Client(timeout=timeout, follow_redirects=True) as client:
-        resp = client.get(f"{origin}/r/{room}", params={"format": "json", "since": since, "limit": limit})
+        resp = client.get(f"{origin}/r/{room}", params=params)
         resp.raise_for_status()
         return resp.json()

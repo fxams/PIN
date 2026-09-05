@@ -209,6 +209,46 @@ def settle_deal(
     return None
 
 
+def payee_accept_offer(
+    offer: dict[str, Any],
+    *,
+    payee_did: str,
+    nonce: str | None = None,
+    secret: bytes | None = None,
+) -> tuple[dict[str, Any], str]:
+    """Payee mints the hash secret and closes the contract. Returns (accept, secret)."""
+    raw = secret if secret is not None else secrets.token_bytes(32)
+    preimage, statement = hash_lock_from_preimage(raw)
+    accept = make_accept(
+        offer=offer,
+        from_did=payee_did,
+        statement=statement,
+        nonce=nonce or secrets.token_hex(8),
+    )
+    return accept, preimage
+
+
+def payee_settle_lines(
+    accept: dict[str, Any],
+    secret: str,
+    receipt: Receipt | None,
+) -> list[str]:
+    """Reveal + claimed receipt if PIN ok; otherwise no tclk1 reveal."""
+    if not pin_ok(receipt):
+        return []
+    payee = str(accept["from"])
+    contract = str(accept["contract"])
+    reveal = make_reveal(contract=contract, from_did=payee, secret=secret)
+    ack = make_receipt(
+        contract=contract,
+        from_did=payee,
+        outcome="claimed",
+        rail=PAPER_RAIL,
+        ref=contract,
+    )
+    return [encode_frame(reveal), encode_frame(ack)]
+
+
 def fold_tclk_room(venue: Venue, room: str = TCLK_OFFERS_ROOM) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     for rec in venue.read(room):

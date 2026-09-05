@@ -13,10 +13,13 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from pin.frames import Pin1Frame, decode_frame, encode_frame
-from pin.identity import PIN_OPERATOR_ROOM, Identity
+from pin.identity import PIN_OPERATOR_ROOM, TCLK_OFFERS_ROOM, Identity
 from pin.lab import PinLab
-from pin.models import Quote, QuoteRequest, SlaClass, Tier
-from pin.tclk_bind import TclkLock, maybe_reveal, mint_hashlock
+from pin.models import Quote, QuoteRequest, Receipt, SlaClass, Tier
+from pin.tclk_bind import TclkLock, maybe_reveal, mint_hashlock, pin_ok
+from pin.tclk_deal import payee_accept_offer, payee_settle_lines
+from pin.tclk_frames import decode_frame as decode_tclk
+from pin.tclk_frames import encode_frame as encode_tclk
 from pin.venue import RoomRecord, Venue
 
 
@@ -36,33 +39,52 @@ class MatchStep:
     quotes: list[str] = field(default_factory=list)
     leaf0: list[str] = field(default_factory=list)
     receipts: list[str] = field(default_factory=list)
+    tclk_accepts: list[str] = field(default_factory=list)
+    tclk_settles: list[str] = field(default_factory=list)
     skipped: list[str] = field(default_factory=list)
     since: int = 0
 
     def as_dict(self) -> dict[str, Any]:
+        tclk_n = len(self.tclk_accepts) + len(self.tclk_settles)
         return {
             "quotes": self.quotes,
             "leaf0": self.leaf0,
             "receipts": self.receipts,
+            "tclk_accepts": self.tclk_accepts,
+            "tclk_settles": self.tclk_settles,
             "skipped": self.skipped,
             "since": self.since,
-            "posted": len(self.quotes) + len(self.leaf0) + len(self.receipts),
+            "posted": len(self.quotes) + len(self.leaf0) + len(self.receipts) + tclk_n,
         }
 
 
 class OperatorMatcher:
     """Reads a pin-jobs venue and replies as the operator DID."""
 
-    def __init__(self, lab: PinLab, ident: Identity, *, venue: Venue | None = None) -> None:
+    def __init__(
+        self,
+        lab: PinLab,
+        ident: Identity,
+        *,
+        venue: Venue | None = None,
+        attack: str = "",
+    ) -> None:
         self.lab = lab
         self.ident = ident
         self.venue = venue or lab.venue
+        self.attack = attack
         self.quoted: dict[str, Quote] = {}
         self.wants: dict[str, Pin1Frame] = {}
         self.locks: dict[str, TclkLock] = {}
         self.done_accepts: set[str] = set()
         self.done_job_ids: set[str] = set()
+        self.receipts_by_job: dict[str, Receipt] = {}
+        self.tclk_offers: dict[str, dict[str, Any]] = {}
+        self.tclk_secrets: dict[str, tuple[dict[str, Any], str]] = {}
+        self.tclk_accepted_refs: set[str] = set()
+        self.tclk_revealed: set[str] = set()
         self.since = 0
+        self.tclk_since = 0
 
     def fold(self, since: int | None = None) -> list[Pin1Frame]:
         out: list[Pin1Frame] = []
@@ -82,9 +104,32 @@ class OperatorMatcher:
         self.since = last
         return out
 
+    def fold_tclk(self, since: int | None = None) -> None:
+        start = self.tclk_since if since is None else since
+        last = start
+        for rec in self.venue.read(TCLK_OFFERS_ROOM, since=start):
+            last = max(last, rec.seq)
+            if not rec.signed:
+                continue
+            try:
+                frame = decode_tclk(rec.text)
+            except Exception:
+                continue
+            if rec.did and frame.get("from") != rec.did:
+                continue
+            kind = frame.get("type")
+            if kind == "offer" and (frame.get("job") or {}).get("proto") == "pin":
+                self.tclk_offers[str(frame["id"])] = frame
+            elif kind == "accept" and frame.get("from") == self.ident.did and frame.get("ref"):
+                self.tclk_accepted_refs.add(str(frame["ref"]))
+            elif kind == "reveal" and frame.get("from") == self.ident.did and frame.get("contract"):
+                self.tclk_revealed.add(str(frame["contract"]))
+        self.tclk_since = last
+
     def step(self) -> MatchStep:
         result = MatchStep(since=self.since)
         frames = self.fold()
+        self.fold_tclk()
         result.since = self.since
         for frame in frames:
             if frame.type == "want" and frame.nonce:
@@ -103,6 +148,7 @@ class OperatorMatcher:
                 if lines:
                     result.leaf0.append(lines[0])
                     result.receipts.append(lines[1])
+        self._catch_up_tclk(result)
         return result
 
     def _remember_quote(self, quote_frame: Pin1Frame) -> None:
@@ -192,13 +238,18 @@ class OperatorMatcher:
             sla=SlaClass(want.sla or "interactive"),
             max_new_tokens=want.n_out or 48,
         )
-        outcome = self.lab.run_job(spec, offer_id=quote.offer_id, n_in=want.n_in or 32)
+        outcome = self.lab.run_job(
+            spec, offer_id=quote.offer_id, n_in=want.n_in or 32, attack=self.attack
+        )
         rec = outcome.receipt
         self.done_accepts.add(accept.offer_id)
         if rec is None:
             result.skipped.append("job-no-receipt")
             return []
+        self.receipts_by_job[spec.job_id] = rec
+        tclk_offer = self._find_tclk_offer(accept, spec.job_id)
         lock = self.locks.get(quote.offer_id)
+        tclk_ref = tclk_offer["id"] if tclk_offer else (lock.statement if lock else None)
         leaf0 = encode_frame(
             Pin1Frame(
                 type="leaf0",
@@ -222,15 +273,69 @@ class OperatorMatcher:
                 paid=rec.paid,
                 sla_miss=rec.sla_miss,
                 status=outcome.status.value,
-                tclk_ref=lock.statement if lock else None,
+                tclk_ref=tclk_ref,
             )
         )
         self.venue.say(PIN_OPERATOR_ROOM, "pin-operator", leaf0, signed=True, did=self.ident.did)
         self.venue.say(PIN_OPERATOR_ROOM, "pin-operator", receipt, signed=True, did=self.ident.did)
-        if lock is not None:
+        if tclk_offer is not None:
+            self._bind_tclk(tclk_offer, rec, result)
+        elif lock is not None:
             preimage = maybe_reveal(lock, rec)
             self.venue.note_set("tclk", lock.statement[2:18], "claimed" if preimage else "refunded")
         return [leaf0, receipt]
+
+    def _find_tclk_offer(self, accept: Pin1Frame, job_id: str) -> dict[str, Any] | None:
+        if accept.tclk_ref and accept.tclk_ref in self.tclk_offers:
+            return self.tclk_offers[accept.tclk_ref]
+        for offer in self.tclk_offers.values():
+            job = offer.get("job") or {}
+            if job.get("proto") == "pin" and job.get("id") == (accept.job_id or job_id):
+                return offer
+        return None
+
+    def _bind_tclk(self, offer: dict[str, Any], rec: Receipt | None, result: MatchStep) -> None:
+        offer_id = str(offer["id"])
+        if offer.get("from") == self.ident.did:
+            result.skipped.append("tclk-offer-is-self")
+            return
+        if offer_id in self.tclk_accepted_refs and offer_id not in self.tclk_secrets:
+            result.skipped.append("tclk-accept-secret-lost")
+            return
+        if offer_id not in self.tclk_secrets:
+            accept, secret = payee_accept_offer(offer, payee_did=self.ident.did)
+            line = encode_tclk(accept)
+            self.venue.say(TCLK_OFFERS_ROOM, "pin-operator", line, signed=True, did=self.ident.did)
+            result.tclk_accepts.append(line)
+            self.tclk_secrets[offer_id] = (accept, secret)
+            self.tclk_accepted_refs.add(offer_id)
+        accept, secret = self.tclk_secrets[offer_id]
+        contract = str(accept["contract"])
+        if contract in self.tclk_revealed:
+            return
+        if not pin_ok(rec):
+            result.skipped.append("tclk-no-reveal")
+            return
+        lines = payee_settle_lines(accept, secret, rec)
+        for line in lines:
+            self.venue.say(TCLK_OFFERS_ROOM, "pin-operator", line, signed=True, did=self.ident.did)
+            result.tclk_settles.append(line)
+        if lines:
+            self.tclk_revealed.add(contract)
+
+    def _catch_up_tclk(self, result: MatchStep) -> None:
+        """Accept a pin paper offer that arrived after the pin1 job already ran."""
+        for offer in self.tclk_offers.values():
+            offer_id = str(offer["id"])
+            if offer_id in self.tclk_accepted_refs and offer_id not in self.tclk_secrets:
+                continue
+            job_id = str((offer.get("job") or {}).get("id") or "")
+            rec = self.receipts_by_job.get(job_id) or self.lab.receipts.get(job_id)
+            if rec is None:
+                continue
+            if offer_id in self.tclk_secrets and str(self.tclk_secrets[offer_id][0]["contract"]) in self.tclk_revealed:
+                continue
+            self._bind_tclk(offer, rec, result)
 
 
 def ingest_json_messages(venue: Venue, payload: dict[str, Any], *, room: str = PIN_OPERATOR_ROOM) -> int:

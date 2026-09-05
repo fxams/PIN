@@ -36,6 +36,7 @@ pin serve --host 127.0.0.1 --port 8787
   operator seed. `pin identity show` must never print a seed.
 - `pin match` answers `pin-jobs`. Do not write `tclk1` into `pin-jobs` or `kibble`.
   Money frames belong on flop's `tclk-offers` with `job.proto=pin` and rail `paper`.
+  `pin match --live` reads both rooms and posts `tclk1` only to `tclk-offers`.
   `flop-htlc` is reserved and does not hold value yet. Owned room is `d-pin`.
   `pin tclk-demo` is the in-process paper deal; `--live` is opt-in.
 - PIN never tells the buyer the price is “N FLOPs.” Quotes are USD micros; the Flop fee field

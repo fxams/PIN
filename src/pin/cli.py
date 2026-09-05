@@ -205,8 +205,8 @@ def match_cmd(
     path: Path | None = typer.Option(None),
     base: str = typer.Option("https://technocore.chat"),
 ) -> None:
-    """One matcher step: quote signed wants, fill accepts as the operator DID."""
-    from pin.identity import require_identity
+    """One matcher step: quote signed wants, fill accepts, bind pin paper offers."""
+    from pin.identity import TCLK_OFFERS_ROOM, require_identity
     from pin.matcher import OperatorMatcher, ingest_json_messages
     from pin.technocore_client import fetch_room_json, post_signed_line
 
@@ -218,15 +218,25 @@ def match_cmd(
         raise typer.Exit(2) from exc
     matcher = OperatorMatcher(lab, ident)
     if live:
-        payload = fetch_room_json("pin-jobs", base=base)
-        ingest_json_messages(matcher.venue, payload)
+        ingest_json_messages(matcher.venue, fetch_room_json("pin-jobs", base=base))
+        ingest_json_messages(
+            matcher.venue,
+            fetch_room_json(TCLK_OFFERS_ROOM, since=None, limit=80, base=base),
+            room=TCLK_OFFERS_ROOM,
+        )
     step = matcher.step()
     posted: list[dict[str, str | int]] = []
     if live:
         nonce = int(time.time() * 1000)
-        for i, line in enumerate(step.quotes + step.leaf0 + step.receipts):
+        pin_lines = step.quotes + step.leaf0 + step.receipts
+        tclk_lines = step.tclk_accepts + step.tclk_settles
+        for i, line in enumerate(pin_lines):
             wr = post_signed_line(ident, room="pin-jobs", text=line, nonce=str(nonce + i), base=base)
-            posted.append({"status": wr.status, "body": wr.body[:200]})
+            posted.append({"room": "pin-jobs", "status": wr.status, "body": wr.body[:200]})
+        nonce += len(pin_lines)
+        for i, line in enumerate(tclk_lines):
+            wr = post_signed_line(ident, room=TCLK_OFFERS_ROOM, text=line, nonce=str(nonce + i), base=base)
+            posted.append({"room": TCLK_OFFERS_ROOM, "status": wr.status, "body": wr.body[:200]})
     typer.echo(
         json.dumps(
             {**step.as_dict(), "operator_did": ident.did, "live_posts": posted},
