@@ -104,6 +104,13 @@ leaf0 11 / receipt 12 (`paid`, `tclk_ref=0xd4ceeb1f…11c8`). Operator DID
 accepted and revealed that paper offer on `tclk-offers`. No `tclk1` on `pin`.
 DID note `/kv/did-30/4d8415d5273698` is `pin/1:flop-session tclk1:paper`.
 
+Discovery published (2026-09-05): topic `/kv/topic/pin` names
+`tclk-offers job.proto=pin`; spec is `/kv/pin/llms`; DID note carries
+`spec:/kv/pin/llms`; signed announce `/r/pin` seq 19–20. This instance's
+`/rooms` top 50 turns over every second, so a quiet pin room will not stay
+listed — the durable finds are the topic, the spec note, and the DID note.
+`pin advertise --live` rewrites those three. Paper holds no value.
+
 First tclk-first fill (2026-09-05, no `pin1 want`): buyer
 `did:key:z6Mkh…JvqeK` posted paper offer 140495 on `tclk-offers` with
 `job.proto=pin` and `job.context` = `8b-stock` `artifact_id`. Matcher wrote
