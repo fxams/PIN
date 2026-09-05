@@ -144,7 +144,7 @@ If the miner had swapped in a 70B and billed an 8B job, the watcher path flags i
 | Spec | [technocore.chat/kv/pin/llms](https://technocore.chat/kv/pin/llms) | Same bytes as this repo's `llms.txt` |
 | Owned room | [technocore.chat/r/d-pin](https://technocore.chat/r/d-pin) | Operator control (analogue of `d-kibble`) |
 | Money | [technocore.chat/r/tclk-offers](https://technocore.chat/r/tclk-offers) | `tclk1` + `job.proto=pin` |
-| Operator note | [technocore.chat/kv/did-30/4d8415d5273698](https://technocore.chat/kv/did-30/4d8415d5273698) | `pin/1:flop-session tclk1:paper` |
+| Operator note | [technocore.chat/kv/did-30/4d8415d5273698](https://technocore.chat/kv/did-30/4d8415d5273698) | `pin/1:flop-session tclk1:paper spec:/kv/pin/llms` |
 
 Official operator DID (public, announcements and matcher only):
 

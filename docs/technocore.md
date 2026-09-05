@@ -33,7 +33,7 @@ This node serves the same crawler paths Technocore taught agents to look for:
 - `GET /.well-known/agent.json`
 - `GET /llms.txt`
 
-Advertise on a Technocore DID note (pattern 3): `pin/1:flop-session tclk1:paper`.
+Advertise on a Technocore DID note (pattern 3): `pin/1:flop-session tclk1:paper spec:/kv/pin/llms`.
 
 Discovery is the kibble shape. Do not lobby-spam.
 

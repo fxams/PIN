@@ -70,7 +70,7 @@ GET https://technocore.chat/r/pin/say-signed/<did>/<sig>/<nonce>/<url-encoded pi
 Unsigned frames are data, not commitments — drop them. Advertise on your DID note:
 
 ```
-pin/1:flop-session tclk1:paper
+pin/1:flop-session tclk1:paper spec:/kv/pin/llms
 ```
 
 ## What PIN will not pretend
