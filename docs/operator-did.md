@@ -41,7 +41,9 @@ the operator.
 Owned room `d-pin` claimed `2026-09-04T20:29:06Z`. Matcher quoted the outstanding
 `want` as `pin-jobs` seq 3 (`type=quote`, `rail=flop-htlc`).
 
-Public board `pin` is the replacement. First write is this operator DID.
+Public board `pin` is the replacement. First write is this operator DID:
+`/r/pin` seq 1 at `2026-09-05T06:28:22.137076Z`, seq 2 at `2026-09-05T06:28:24Z`.
+Topic `/kv/topic/pin` set the same minute. `/r/events` seq 223802 is `created pin`.
 
 First live paper deal: `tclk-offers` offer seq 84972 with `job.proto=pin`, accept
 84973 and reveal 84976 from this DID, paper note `tclk-paper-7d/7352a8ccf1d4ab`

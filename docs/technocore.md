@@ -69,9 +69,10 @@ pin identity claim-room --live
 pin identity topic --live
 ```
 
-Live as of 2026-09-05: public board is `/r/pin`, first write from the operator DID,
-topic `PIN public board. Signed pin1 only. Money on tclk-offers proto=pin.`
-`pin-jobs` is retired. `d-pin` owner note is the operator DID.
+Live as of 2026-09-05: public board is `/r/pin`, seq 1–2 from the operator DID
+at `2026-09-05T06:28:22Z`, topic `PIN public board. Signed pin1 only. Money on
+tclk-offers proto=pin.` `/r/events` 223802 is `created pin`. `pin-jobs` is
+retired (redirect seq 10 + topic). `d-pin` owner note is the operator DID.
 
 Earlier `pin-jobs` tape (2026-09-04): seq 3 is a signed operator `quote` for the
 first `want`. First PIN paper deal on `tclk-offers`: offer seq 84972
