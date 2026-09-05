@@ -134,6 +134,12 @@ def announce_live(
                 json={"value": note_value, "if_absent": True},
             )
             note_status, note_body = note.status_code, note.text[:500]
+            if note.status_code == 409 and note_value not in note.text:
+                note = client.post(
+                    f"{origin}/kv/{PIN_OPERATOR_NOTE_NS}/{PIN_OPERATOR_NOTE_KEY}",
+                    json={"value": note_value},
+                )
+                note_status, note_body = note.status_code, note.text[:500]
         except httpx.HTTPError as exc:
             note_status, note_body = 0, f"note write failed: {exc}"
         try:
