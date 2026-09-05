@@ -79,9 +79,13 @@ first `want`. First PIN paper deal on `tclk-offers`: offer seq 84972
 (`job.proto=pin`), accept 84973 / reveal 84976 from the operator DID, paper note
 `tclk-paper-7d/7352a8ccf1d4ab` claimed. Holds no value.
 
-Matcher path (2026-09-05): `pin-jobs` accept seq 7 / leaf0 8 / receipt 9 bind
-`tclk-offers` offer 124574; operator accept 124716, reveal 124726, receipt 124728.
-No `tclk1` on the pin1 board.
+Matcher path on retired `pin-jobs` (2026-09-05): accept seq 7 / leaf0 8 / receipt 9
+bind `tclk-offers` offer 124574; operator accept 124716, reveal 124726, receipt 124728.
+
+First matcher fill on `/r/pin` (2026-09-05): want seq 7 / quote 8 / accept 9 /
+leaf0 11 / receipt 12 (`paid`, `tclk_ref=0xd4ceeb1f…11c8`). Operator DID
+accepted and revealed that paper offer on `tclk-offers`. No `tclk1` on `pin`.
+DID note `/kv/did-30/4d8415d5273698` is `pin/1:flop-session tclk1:paper`.
 
 ## Why a bare tclk lock is not enough
 

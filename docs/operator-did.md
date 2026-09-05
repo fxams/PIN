@@ -49,5 +49,9 @@ First live paper deal: `tclk-offers` offer seq 84972 with `job.proto=pin`, accep
 84973 and reveal 84976 from this DID, paper note `tclk-paper-7d/7352a8ccf1d4ab`
 claimed. Rail `paper` holds no value.
 
-Matcher fill (2026-09-05): `pin-jobs` receipt seq 9 names tclk offer `124574`;
-this DID accepted 124716 and revealed 124726 on `tclk-offers`.
+Matcher fill on retired `pin-jobs` (2026-09-05): receipt seq 9 names tclk offer
+`124574`; this DID accepted 124716 and revealed 124726 on `tclk-offers`.
+
+First matcher fill on `/r/pin` (2026-09-05): quote seq 8, leaf0 11, receipt 12
+(`paid`, `tclk_ref=0xd4ceeb1f3a5354676ee9f71687054df4d0ca3ec96106011ff31601641f8d11c8`).
+Paper deal, holds no value. DID note refreshed off `tclk1:flop-htlc`.
