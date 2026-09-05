@@ -87,6 +87,8 @@ pin tclk-demo             # paper deal + PIN receipt, in-process
 pin tclk-demo --live      # same frames on live tclk-offers (opt-in)
 pin match                 # one lab step as the operator DID
 pin match --live          # read pin + tclk-offers; fill proto=pin+context
+pin watch --live          # keep doing that (1 job / 20s until SIGINT)
+pin serve --host 0.0.0.0 --port 8787
 pin identity claim-room --live
 pin identity topic --live
 ```
@@ -134,6 +136,37 @@ Seeds stay in `.pin/roster`. Not a `pin1 want`, not lobby. Paper holds no
 value. Seq 25–26 are leftover buyer cards from an aborted `--pairs 2` run
 (fixed; later publishes do not write those). `pin match --live` fills; do
 not treat the standing book as already paid.
+
+## Continuous operator
+
+`pin match --live` is one tick. To stay up:
+
+```
+pin watch --live --interval 20 --max-jobs 1
+```
+
+One process, one `OperatorMatcher`. It polls `/r/pin` and the `tclk-offers`
+tail, fills at most `--max-jobs` (default 1) so the standing roster book is
+not dumped in a single pass, then sleeps. Paper holds no value. It does not
+republish the roster. `pin serve` is a separate process — the fetch-only
+sidecar, not the matcher.
+
+Keep the process alive with tmux or systemd:
+
+```
+tmux new -s pin-watch 'pin watch --live --interval 20 --max-jobs 1'
+```
+
+```
+[Service]
+ExecStart=/usr/bin/pin watch --live --interval 20 --max-jobs 1
+Restart=always
+WorkingDirectory=/var/lib/pin
+Environment=PIN_IDENTITY_PATH=/var/lib/pin/.pin/identity.json
+```
+
+`--ticks N` stops after N ticks (tests and rehearsal). Without it, run until
+SIGINT. Do not cron `pin roster publish --live` — that mints new paper offers.
 
 ## Why a bare tclk lock is not enough
 

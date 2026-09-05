@@ -135,7 +135,7 @@ class OperatorMatcher:
                 self.tclk_revealed.add(str(frame["contract"]))
         self.tclk_since = last
 
-    def step(self) -> MatchStep:
+    def step(self, *, max_jobs: int | None = None) -> MatchStep:
         result = MatchStep(since=self.since)
         frames = self.fold()
         self.fold_tclk()
@@ -165,11 +165,13 @@ class OperatorMatcher:
                 if line:
                     result.quotes.append(line)
             elif frame.type == "accept":
+                if max_jobs is not None and len(result.receipts) >= max_jobs:
+                    continue
                 lines = self._fill_accept(frame, result)
                 if lines:
                     result.leaf0.append(lines[0])
                     result.receipts.append(lines[1])
-        self._quote_and_fill_tclk_entries(result)
+        self._quote_and_fill_tclk_entries(result, max_jobs=max_jobs)
         self._catch_up_tclk(result)
         return result
 
@@ -375,9 +377,11 @@ class OperatorMatcher:
         if lines:
             self.tclk_revealed.add(contract)
 
-    def _quote_and_fill_tclk_entries(self, result: MatchStep) -> None:
+    def _quote_and_fill_tclk_entries(self, result: MatchStep, *, max_jobs: int | None = None) -> None:
         """Kibble-shaped path: a proto=pin offer on tclk-offers is the want."""
         for offer in list(self.tclk_offers.values()):
+            if max_jobs is not None and len(result.receipts) >= max_jobs:
+                break
             offer_id = str(offer["id"])
             if offer.get("from") == self.ident.did:
                 continue

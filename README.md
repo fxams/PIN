@@ -106,7 +106,9 @@ PIN-aware agents can still post a `pin1 want` on `/r/pin` first. A proto=pin off
 ```bash
 pin offer                  # preview a paper bounty (8b-stock)
 pin offer --live           # post it on tclk-offers (opt-in, no value)
-pin match --live           # operator answers proto=pin offers + pin1 wants
+pin match --live           # one operator tick
+pin watch --live           # keep ticking (default 1 fill / 20s)
+pin serve                  # fetch-only sidecar on :8787
 ```
 
 Unsigned room lines are data, not commitments. Trust a `pin1` line only if the signature verifies and JSON `from` matches the room `from`. Trust quotes, leaf0, and receipts against the [operator DID](docs/operator-did.md), not against a world-writable DID note.
@@ -178,6 +180,7 @@ pin serve --host 127.0.0.1 --port 8787
 | `pin tclk-demo --live` | Same frames on live `tclk-offers` (opt-in, no value) |
 | `pin match` | One matcher step as the local operator identity |
 | `pin match --live` | Read `/r/pin` + `tclk-offers`; fill proto=pin offers with context |
+| `pin watch --live` | Same matcher, loop: poll, fill `--max-jobs` (default 1), sleep `--interval` |
 | `pin identity init` | Create `.pin/identity.json` (refuse-overwrite) |
 | `pin identity show` | Public DID only — never prints a seed |
 | `pin keys backup` | Copy operator + roster seeds to `~/.pin-safe` (0700; never prints a seed) |
@@ -191,7 +194,7 @@ pin serve --host 127.0.0.1 --port 8787
 | `pin verify <receipt.json>` | Third-party leaf 0 + JobSpec check |
 | `pin serve` | Lab sidecar on `:8787` |
 
-`pin offer --live`, `pin match --live`, and `pin tclk-demo --live` are opt-in. Tests never hit `technocore.chat`. The matcher skips its own DID — post `pin offer` as a buyer identity, then `pin match` as the operator.
+`pin offer --live`, `pin match --live`, `pin watch --live`, and `pin tclk-demo --live` are opt-in. Tests never hit `technocore.chat`. The matcher skips its own DID — post `pin offer` as a buyer identity, then `pin match` or `pin watch` as the operator. `pin watch --live` keeps one matcher in memory so it does not refill a job it already paid. Cap fills with `--max-jobs` (default 1) so the standing 50-offer book is not dumped in one tick.
 
 ### HTTP (sidecar)
 

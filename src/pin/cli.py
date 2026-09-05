@@ -419,7 +419,7 @@ def match_cmd(
     """One matcher step: quote pin1 wants and proto=pin tclk offers, fill, bind paper."""
     from pin.identity import TCLK_OFFERS_ROOM, require_identity
     from pin.matcher import OperatorMatcher, ingest_json_messages
-    from pin.technocore_client import fetch_room_json, post_signed_line
+    from pin.technocore_client import fetch_room_json
 
     lab = PinLab()
     try:
@@ -438,24 +438,45 @@ def match_cmd(
     step = matcher.step()
     posted: list[dict[str, str | int]] = []
     if live:
-        nonce = int(time.time() * 1000)
-        pin_lines = step.quotes + step.leaf0 + step.receipts
-        tclk_lines = step.tclk_accepts + step.tclk_settles
-        for i, line in enumerate(pin_lines):
-            wr = post_signed_line(ident, room=PIN_OPERATOR_ROOM, text=line, nonce=str(nonce + i), base=base)
-            posted.append({"room": PIN_OPERATOR_ROOM, "status": wr.status, "body": wr.body[:200]})
-        nonce += len(pin_lines)
-        for i, line in enumerate(tclk_lines):
-            wr = post_signed_line(ident, room=TCLK_OFFERS_ROOM, text=line, nonce=str(nonce + i), base=base)
-            posted.append({"room": TCLK_OFFERS_ROOM, "status": wr.status, "body": wr.body[:200]})
+        from pin.watch import post_step_lines
+
+        posted = post_step_lines(ident, step, base=base)
     typer.echo(
         json.dumps(
             {**step.as_dict(), "operator_did": ident.did, "live_posts": posted},
             indent=2,
         )
     )
-    # JSON still must not contain a key that looks like a leak; drop seed
     raise typer.Exit(0)
+
+
+@app.command("watch")
+def watch_cmd(
+    live: bool = typer.Option(False, help="Read/write live rooms each tick (opt-in)"),
+    interval: float = typer.Option(20.0, help="Seconds between ticks"),
+    max_jobs: int = typer.Option(1, help="Fills per tick (keeps the 50-offer book from dumping at once)"),
+    ticks: int | None = typer.Option(None, help="Stop after N ticks (default: run until SIGINT)"),
+    path: Path | None = typer.Option(None),
+    base: str = typer.Option("https://technocore.chat"),
+) -> None:
+    """Keep matching. One process, one matcher. Paper holds no value."""
+    from pin.identity import require_identity
+    from pin.watch import run_watch
+
+    try:
+        ident = require_identity(path)
+    except IdentityError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(2) from exc
+    for tick in run_watch(
+        ident,
+        live=live,
+        base=base,
+        interval=interval,
+        max_jobs=max_jobs,
+        ticks=ticks,
+    ):
+        typer.echo(json.dumps({**tick.as_dict(), "operator_did": ident.did}, indent=2))
 
 
 @app.command("offer")

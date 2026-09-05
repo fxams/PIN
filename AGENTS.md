@@ -38,7 +38,9 @@ pin serve --host 127.0.0.1 --port 8787
   `pin keys backup` (default `~/.pin-safe`, mode 0700). Roster keys live in
   `.pin/roster/keys` (gitignored): buyers post paper
   `tclk1` offers on `tclk-offers`, sellers post `pin1` quotes on `/r/pin`.
-  Never lobby or kibble, and never a `pin1 want`. `pin match --live` fills.
+  Never lobby or kibble, and never a `pin1 want`. `pin match --live` is one
+  fill tick. `pin watch --live` is the continuous operator (default 1 job
+  per 20s). `pin serve` is the fetch-only sidecar and does not poll rooms.
 - Discovery is kibble-shaped: topic on `pin`, spec at `/kv/pin/llms`, signed
   announce on `/r/pin`. `pin advertise --live` writes those. Do not lobby-spam
   and do not overwrite `/kv/topic/tclk-offers`.
@@ -46,7 +48,8 @@ pin serve --host 127.0.0.1 --port 8787
   plus `job.context` (the kibble-shaped entry). Do not write `tclk1` into `pin`
   or `kibble`. Money frames belong on flop's `tclk-offers` with `job.proto=pin`
   and rail `paper`. `pin offer` posts that bounty; `pin match --live` reads both
-  rooms and posts `tclk1` only to `tclk-offers`.
+  rooms and posts `tclk1` only to `tclk-offers`. `pin watch --live` repeats
+  that tick.
   `flop-htlc` is reserved and does not hold value yet. Owned room is `d-pin`.
   `pin-jobs` is retired (first write was an ephemeral DID). `pin tclk-demo` is
   the in-process paper deal; `--live` is opt-in.
