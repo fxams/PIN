@@ -91,6 +91,7 @@ class OperatorMatcher:
         self.tclk_accepted_refs: set[str] = set()
         self.tclk_revealed: set[str] = set()
         self.tclk_quoted: set[str] = set()
+        self.done_tclk_refs: set[str] = set()
         self.since = 0
         self.tclk_since = 0
 
@@ -146,6 +147,17 @@ class OperatorMatcher:
                 self._remember_quote(frame)
             elif frame.type == "leaf0" and frame.from_did == self.ident.did and frame.job_id:
                 self.done_job_ids.add(frame.job_id)
+            elif frame.type == "receipt" and frame.from_did == self.ident.did:
+                if frame.job_id:
+                    self.done_job_ids.add(frame.job_id)
+                if frame.tclk_ref:
+                    self.done_tclk_refs.add(frame.tclk_ref)
+        for frame in frames:
+            if frame.type == "accept" and frame.offer_id:
+                if frame.tclk_ref and frame.tclk_ref in self.done_tclk_refs:
+                    self.done_accepts.add(frame.offer_id)
+                if frame.job_id and frame.job_id in self.done_job_ids:
+                    self.done_accepts.add(frame.offer_id)
         for frame in frames:
             if frame.type == "want":
                 line = self._quote_want(frame, result)
@@ -277,9 +289,12 @@ class OperatorMatcher:
         if rec is None:
             result.skipped.append("job-no-receipt")
             return []
-        self.receipts_by_job[spec.job_id] = rec
         if accept.job_id:
             self.receipts_by_job[accept.job_id] = rec
+        if not accept.job_id or accept.job_id == spec.job_id:
+            self.receipts_by_job[spec.job_id] = rec
+        if accept.tclk_ref:
+            self.done_tclk_refs.add(accept.tclk_ref)
         tclk_offer = self._find_tclk_offer(accept, spec.job_id)
         lock = self.locks.get(quote.offer_id)
         tclk_ref = tclk_offer["id"] if tclk_offer else (lock.statement if lock else None)
@@ -319,11 +334,14 @@ class OperatorMatcher:
         return [leaf0, receipt]
 
     def _find_tclk_offer(self, accept: Pin1Frame, job_id: str) -> dict[str, Any] | None:
-        if accept.tclk_ref and accept.tclk_ref in self.tclk_offers:
-            return self.tclk_offers[accept.tclk_ref]
+        if accept.tclk_ref:
+            return self.tclk_offers.get(accept.tclk_ref)
+        want = accept.job_id or job_id
+        if not want:
+            return None
         for offer in self.tclk_offers.values():
             job = offer.get("job") or {}
-            if job.get("proto") == "pin" and job.get("id") == (accept.job_id or job_id):
+            if job.get("proto") == "pin" and job.get("id") == want:
                 return offer
         return None
 
@@ -362,7 +380,7 @@ class OperatorMatcher:
             offer_id = str(offer["id"])
             if offer.get("from") == self.ident.did:
                 continue
-            if offer_id in self.done_accepts:
+            if offer_id in self.done_accepts or offer_id in self.done_tclk_refs:
                 continue
             job = offer.get("job") or {}
             if job.get("proto") != "pin":
@@ -420,8 +438,10 @@ class OperatorMatcher:
             offer_id = str(offer["id"])
             if offer_id in self.tclk_accepted_refs and offer_id not in self.tclk_secrets:
                 continue
+            if offer_id in self.done_tclk_refs:
+                continue
             job_id = str((offer.get("job") or {}).get("id") or "")
-            rec = self.receipts_by_job.get(job_id) or self.lab.receipts.get(job_id)
+            rec = self.receipts_by_job.get(job_id)
             if rec is None:
                 continue
             if offer_id in self.tclk_secrets and str(self.tclk_secrets[offer_id][0]["contract"]) in self.tclk_revealed:

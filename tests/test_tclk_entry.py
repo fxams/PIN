@@ -166,6 +166,133 @@ def test_matcher_skips_unknown_tclk_context(tmp_path):
     assert any(s.startswith("tclk-unknown-artifact") for s in step.skipped)
 
 
+def test_matcher_does_not_refill_accept_already_on_tape(tmp_path):
+    from pin.frames import Pin1Frame, encode_frame
+
+    lab = PinLab()
+    ident = _operator(tmp_path)
+    artifact = lab.named_artifacts["8b-stock"]
+    _, agent_did, _ = new_agent_identity()
+    tclk_ref = "0x" + "d4" * 32
+    want = encode_frame(
+        Pin1Frame(
+            type="want",
+            from_did=agent_did,
+            nonce="aa11bb22cc33dd99",
+            artifact_id=artifact.artifact_id,
+            tier="T1",
+            sla="interactive",
+            n_in=32,
+            n_out=48,
+        )
+    )
+    quote = encode_frame(
+        Pin1Frame(
+            type="quote",
+            from_did=ident.did,
+            nonce="q3q3q3q3q3q3q3q3",
+            artifact_id=artifact.artifact_id,
+            ref="aa11bb22cc33dd99",
+            offer_id="cc" * 32,
+            usd_micros=17,
+            flop_fee=347,
+            ttl_sec=15,
+            rail="paper",
+        )
+    )
+    accept = encode_frame(
+        Pin1Frame(
+            type="accept",
+            from_did=agent_did,
+            nonce="ee11ff22aa33bb99",
+            offer_id="cc" * 32,
+            job_id="61" * 32,
+            tclk_ref=tclk_ref,
+            rail="paper",
+        )
+    )
+    leaf0 = encode_frame(
+        Pin1Frame(
+            type="leaf0",
+            from_did=ident.did,
+            nonce="l0l0l0l0l0l0l0l0",
+            job_id="76" * 32,
+            artifact_id=artifact.artifact_id,
+        )
+    )
+    receipt = encode_frame(
+        Pin1Frame(
+            type="receipt",
+            from_did=ident.did,
+            nonce="r0r0r0r0r0r0r0r0",
+            job_id="76" * 32,
+            artifact_id=artifact.artifact_id,
+            paid=True,
+            tclk_ref=tclk_ref,
+        )
+    )
+    lab.venue.say("pin", "agent", want, signed=True, did=agent_did)
+    lab.venue.say("pin", "op", quote, signed=True, did=ident.did)
+    lab.venue.say("pin", "agent", accept, signed=True, did=agent_did)
+    lab.venue.say("pin", "op", leaf0, signed=True, did=ident.did)
+    lab.venue.say("pin", "op", receipt, signed=True, did=ident.did)
+    stray = make_offer(
+        from_did=agent_did,
+        amount="100",
+        asset="PAPER",
+        lock="hash",
+        rails=["paper"],
+        nonce="cafebabedeadbee5",
+        expires_ms=1_750_003_600_000,
+        claim_by_ms=1_750_086_400_000,
+        refund_after_ms=1_750_172_800_000,
+        job=pin_job(lab.default_spec().job_id),
+    )
+    lab.venue.say(TCLK_OFFERS_ROOM, "agent", encode_tclk(stray), signed=True, did=agent_did)
+    step = OperatorMatcher(lab, ident).step()
+    assert step.leaf0 == []
+    assert step.receipts == []
+    assert step.tclk_accepts == []
+
+
+def test_matcher_does_not_bind_stray_default_job_id_offer(tmp_path):
+    lab = PinLab()
+    ident = _operator(tmp_path)
+    matcher = OperatorMatcher(lab, ident)
+    artifact = lab.named_artifacts["8b-stock"]
+    _, agent_did, _ = new_agent_identity()
+    bounty = make_offer(
+        from_did=agent_did,
+        amount="100",
+        asset="PAPER",
+        lock="hash",
+        rails=["paper"],
+        nonce="cafebabedeadbee6",
+        expires_ms=1_750_003_600_000,
+        claim_by_ms=1_750_086_400_000,
+        refund_after_ms=1_750_172_800_000,
+        job=pin_job("22" * 32, artifact_id=artifact.artifact_id),
+    )
+    stray = make_offer(
+        from_did=agent_did,
+        amount="100",
+        asset="PAPER",
+        lock="hash",
+        rails=["paper"],
+        nonce="cafebabedeadbee7",
+        expires_ms=1_750_003_600_000,
+        claim_by_ms=1_750_086_400_000,
+        refund_after_ms=1_750_172_800_000,
+        job=pin_job(lab.default_spec().job_id),
+    )
+    lab.venue.say(TCLK_OFFERS_ROOM, "agent", encode_tclk(bounty), signed=True, did=agent_did)
+    lab.venue.say(TCLK_OFFERS_ROOM, "agent", encode_tclk(stray), signed=True, did=agent_did)
+    filled = matcher.step()
+    assert len(filled.tclk_accepts) == 1
+    assert bounty["id"] in filled.tclk_accepts[0]
+    assert stray["id"] not in "".join(filled.tclk_accepts + filled.tclk_settles)
+
+
 def test_cli_offer_preview(tmp_path):
     from typer.testing import CliRunner
 
