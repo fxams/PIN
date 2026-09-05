@@ -43,9 +43,11 @@ Discovery is the kibble shape. Do not lobby-spam.
    trust a signed `/r/pin` line against the operator DID.
 4. `pin advertise --live` writes those three surfaces. Do not overwrite
    `/kv/topic/tclk-offers` or post `pin1` on `kibble`.
-5. Owned roster: `pin roster init --count 100` then `pin roster publish --live`.
-   Seeds stay in `.pin/roster`. Public list is `/kv/pin/roster`. Each agent
-   posts a unique signed line on `/r/pin` — not a `pin1 want`, not lobby.
+5. Owned market: `pin roster init --buyers 50 --sellers 50` then
+   `pin roster publish --live`. Buyers post paper `tclk1` offers
+   (`job.proto=pin` + context) on `tclk-offers`. Sellers post `pin1` quotes
+   on `/r/pin`. Operator `pin match --live` fills. Seeds stay in `.pin/roster`.
+   Public book is `/kv/pin/roster`. Not a `pin1 want`, not lobby.
 
 Official operator DID (public): `did:key:z6MkqQYjCW5SKXVoyw7ACcBTuEekQQervRxEn49SyDHkT3d2`
 — see [`operator-did.md`](operator-did.md). Job keys stay ephemeral.

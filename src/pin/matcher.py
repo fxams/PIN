@@ -143,8 +143,9 @@ class OperatorMatcher:
         for frame in frames:
             if frame.type == "want" and frame.nonce:
                 self.wants[frame.nonce] = frame
-            elif frame.type == "quote" and frame.from_did == self.ident.did and frame.ref and frame.offer_id:
-                self._remember_quote(frame)
+            elif frame.type == "quote" and frame.ref and frame.offer_id:
+                if frame.from_did == self.ident.did or frame.tclk_ref:
+                    self._remember_quote(frame)
             elif frame.type == "leaf0" and frame.from_did == self.ident.did and frame.job_id:
                 self.done_job_ids.add(frame.job_id)
             elif frame.type == "receipt" and frame.from_did == self.ident.did:

@@ -230,36 +230,58 @@ def identity_topic(
 
 @roster_app.command("init")
 def roster_init(
-    count: int = typer.Option(100, help="How many owned identities to keep (1-250)"),
+    buyers: int = typer.Option(50, help="Owned buyer identities"),
+    sellers: int = typer.Option(50, help="Owned seller identities"),
     roster_dir: Path | None = typer.Option(None, help="Default .pin/roster"),
 ) -> None:
-    """Create owned roster identities. Seeds stay in .pin/roster (gitignored)."""
+    """Create owned buyer and seller identities. Seeds stay in .pin/roster."""
     from pin.roster import init_roster, public_entries
 
-    idents = init_roster(roster_dir, count=count)
-    typer.echo(json.dumps({"n": len(idents), "agents": public_entries(idents), "seed": False}, indent=2))
+    agents = init_roster(roster_dir, buyers=buyers, sellers=sellers)
+    typer.echo(
+        json.dumps(
+            {
+                "n": len(agents),
+                "n_buyers": sum(1 for a in agents if a.role == "buyer"),
+                "n_sellers": sum(1 for a in agents if a.role == "seller"),
+                "agents": public_entries(agents),
+                "seed": False,
+            },
+            indent=2,
+        )
+    )
 
 
 @roster_app.command("show")
 def roster_show(roster_dir: Path | None = typer.Option(None)) -> None:
-    """Print public roster DIDs. Never prints a seed."""
+    """Print public buyer/seller DIDs. Never prints a seed."""
     from pin.roster import load_roster, public_entries
 
-    idents = load_roster(roster_dir)
-    typer.echo(json.dumps({"n": len(idents), "agents": public_entries(idents)}, indent=2))
-    if not idents:
+    agents = load_roster(roster_dir)
+    typer.echo(
+        json.dumps(
+            {
+                "n": len(agents),
+                "n_buyers": sum(1 for a in agents if a.role == "buyer"),
+                "n_sellers": sum(1 for a in agents if a.role == "seller"),
+                "agents": public_entries(agents),
+            },
+            indent=2,
+        )
+    )
+    if not agents:
         raise typer.Exit(1)
 
 
 @roster_app.command("publish")
 def roster_publish(
-    live: bool = typer.Option(False, help="Post the roster on live /r/pin (opt-in)"),
-    posts: int | None = typer.Option(None, help="How many agents post (default: all)"),
+    live: bool = typer.Option(False, help="Post buyer offers and seller quotes (opt-in)"),
+    pairs: int | None = typer.Option(None, help="How many buyer/seller pairs to post"),
     path: Path | None = typer.Option(None, help="Operator identity"),
     roster_dir: Path | None = typer.Option(None),
     base: str = typer.Option("https://technocore.chat"),
 ) -> None:
-    """Post unique signed roster lines in /r/pin and publish /kv/pin/roster."""
+    """Buyers post tclk1 proto=pin offers; sellers post pin1 quotes. Paper, no value."""
     from pin.identity import require_identity
     from pin.roster import init_roster, load_roster, preview_roster, publish_roster
 
@@ -268,18 +290,23 @@ def roster_publish(
     except IdentityError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(2) from exc
-    idents = load_roster(roster_dir)
-    if not idents:
-        idents = init_roster(roster_dir, count=100)
-    preview = preview_roster(idents, operator, posts=posts)
+    agents = load_roster(roster_dir)
+    if not agents:
+        agents = init_roster(roster_dir)
+    preview = preview_roster(agents, operator, pairs=pairs)
     if not live:
         typer.echo(json.dumps(preview, indent=2))
         raise typer.Exit(0)
-    result = publish_roster(idents, operator, posts=posts, base=base)
-    payload = {**preview, **result.as_dict(), "agents": preview["agents"]}
-    payload.pop("sample_lines", None)
+    result = publish_roster(agents, operator, pairs=pairs, base=base)
+    payload = {**preview, **result.as_dict()}
+    payload.pop("sample", None)
     typer.echo(json.dumps(payload, indent=2))
-    raise typer.Exit(0 if result.rooms_ok == preview["posts"] and result.operator_status == 200 else 1)
+    ok = (
+        result.operator_status == 200
+        and result.buyer_offers_ok == preview["pairs"]
+        and result.seller_quotes_ok == preview["pairs"]
+    )
+    raise typer.Exit(0 if ok else 1)
 
 
 @app.command("advertise")

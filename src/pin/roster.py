@@ -1,9 +1,11 @@
-"""Owned PIN roster — identities we control, posted in /r/pin.
+"""Owned PIN market — artificial buyers and sellers we control.
 
-Seeds stay under `.pin/roster/` (gitignored). The public list is `/kv/pin/roster`.
-Each agent posts a unique signed line so Technocore's copy-filter does not 422.
-They do not post pin1 wants (that would fire the matcher) and they do not write
-kibble, lobby, or tclk-offers.
+Buyers post `tclk1` paper offers on `tclk-offers` (`job.proto=pin` + context).
+Sellers post `pin1` quotes on `/r/pin` for those offers. Seeds stay under
+`.pin/roster/` (gitignored). Public book is `/kv/pin/roster`.
+
+They do not post `pin1 want` (the tclk offer is the want), do not fill jobs
+(the operator matcher does that), and do not write kibble or lobby.
 """
 
 from __future__ import annotations
@@ -11,6 +13,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import secrets
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -18,22 +21,44 @@ from typing import Any
 
 import httpx
 
+from pin.frames import Pin1Frame, encode_frame
 from pin.identity import (
-    PIN_OPERATOR_NOTE_TOKEN,
     PIN_OPERATOR_ROOM,
+    TCLK_OFFERS_ROOM,
     Identity,
     identity_from_seed,
     write_identity,
 )
+from pin.lab import PinLab
+from pin.models import QuoteRequest, SlaClass, Tier
+from pin.tclk_entry import build_pin_bounty
+from pin.tclk_frames import encode_frame as encode_tclk
 from pin.technocore_client import DEFAULT_BASE, sign_room, sweep_line
 
 ROSTER_NOTE_NS = "pin"
 ROSTER_NOTE_KEY = "roster"
 ROSTER_NOTE_PATH = f"/kv/{ROSTER_NOTE_NS}/{ROSTER_NOTE_KEY}"
 DEFAULT_ROSTER_DIR = Path(".pin") / "roster"
-DEFAULT_COUNT = 100
-MAX_COUNT = 250
+DEFAULT_BUYERS = 50
+DEFAULT_SELLERS = 50
+MAX_SIDE = 125
 WAIT_RE = re.compile(r"(\d+)")
+ROLES = frozenset({"buyer", "seller"})
+ARTIFACT_KEYS = ("8b-stock", "70b-stock")
+
+
+@dataclass
+class RosterAgent:
+    ident: Identity
+    role: str
+
+    @property
+    def did(self) -> str:
+        return self.ident.did
+
+    @property
+    def fingerprint(self) -> str:
+        return self.ident.fingerprint
 
 
 def default_roster_dir() -> Path:
@@ -48,19 +73,14 @@ def did_note_parts(fingerprint: str) -> tuple[str, str]:
     return f"did-{fp[:2]}", fp[2:]
 
 
-def roster_line(ident: Identity, *, index: int, total: int) -> str:
-    """Unique per DID so the room copy-filter does not refuse the line."""
-    return (
-        f"PIN roster {index}/{total} {ident.did} {ident.fingerprint} "
-        f"speaks pin/1. Start: tclk-offers job.proto=pin context=<artifact>. "
-        f"spec:/kv/pin/llms list:{ROSTER_NOTE_PATH}"
-    )
+def note_token(role: str) -> str:
+    return f"pin/1:{role} tclk1:paper spec:/kv/pin/llms"
 
 
-def operator_roster_line(operator: Identity, *, total: int) -> str:
+def operator_roster_line(operator: Identity, *, buyers: int, sellers: int) -> str:
     return (
-        f"PIN roster {total} owned agents at {ROSTER_NOTE_PATH}. "
-        f"Start: tclk-offers job.proto=pin context=<artifact>. {operator.did}"
+        f"PIN market {buyers} buyers / {sellers} sellers at {ROSTER_NOTE_PATH}. "
+        f"Buyers: tclk-offers job.proto=pin. Sellers: pin1 quote on /r/pin. {operator.did}"
     )
 
 
@@ -68,27 +88,36 @@ def _agent_path(root: Path, fingerprint: str) -> Path:
     return root / "keys" / f"{fingerprint}.json"
 
 
-def public_entries(idents: list[Identity]) -> list[dict[str, str]]:
+def _roles_path(root: Path) -> Path:
+    return root / "roles.json"
+
+
+def public_entries(agents: list[RosterAgent]) -> list[dict[str, str]]:
     return [
         {
-            "did": ident.did,
-            "fingerprint": ident.fingerprint,
-            "note": f"/kv/{did_note_parts(ident.fingerprint)[0]}/{did_note_parts(ident.fingerprint)[1]}",
+            "did": agent.did,
+            "fingerprint": agent.fingerprint,
+            "role": agent.role,
+            "note": f"/kv/{did_note_parts(agent.fingerprint)[0]}/{did_note_parts(agent.fingerprint)[1]}",
         }
-        for ident in idents
+        for agent in agents
     ]
 
 
-def roster_note_body(idents: list[Identity]) -> str:
-    """Public list of DIDs only — 100 full agent objects would exceed the 8192-char note cap."""
+def roster_note_body(agents: list[RosterAgent]) -> str:
+    buyers = [a.did for a in agents if a.role == "buyer"]
+    sellers = [a.did for a in agents if a.role == "seller"]
     payload = {
         "v": "pin/1",
         "kind": "roster",
-        "n": len(idents),
+        "buyers": buyers,
+        "sellers": sellers,
+        "n_buyers": len(buyers),
+        "n_sellers": len(sellers),
         "room": PIN_OPERATOR_ROOM,
+        "money_room": TCLK_OFFERS_ROOM,
         "entry": "tclk-offers job.proto=pin + job.context",
         "spec": "/kv/pin/llms",
-        "dids": [ident.did for ident in idents],
     }
     text = json.dumps(payload, separators=(",", ":"), sort_keys=True)
     if len(text) > 8192:
@@ -96,22 +125,75 @@ def roster_note_body(idents: list[Identity]) -> str:
     return text
 
 
-def load_roster(root: Path | None = None) -> list[Identity]:
+def _load_roles(root: Path) -> dict[str, str]:
+    path = _roles_path(root)
+    if not path.exists():
+        return {}
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        return {}
+    return {str(k): str(v) for k, v in data.items() if v in ROLES}
+
+
+def _write_roles(root: Path, agents: list[RosterAgent]) -> None:
+    payload = {agent.fingerprint: agent.role for agent in agents}
+    dest = _roles_path(root)
+    dest.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    os.chmod(dest, 0o600)
+
+
+def load_roster(root: Path | None = None) -> list[RosterAgent]:
     dest = root or default_roster_dir()
     key_dir = dest / "keys"
     if not key_dir.is_dir():
         return []
-    out: list[Identity] = []
+    roles = _load_roles(dest)
+    idents: list[Identity] = []
     for path in sorted(key_dir.glob("*.json")):
         data = json.loads(path.read_text(encoding="utf-8"))
-        ident = identity_from_seed(str(data["seed"]), source=str(path))
-        out.append(ident)
-    return out
+        idents.append(identity_from_seed(str(data["seed"]), source=str(path)))
+    assigned = _apply_roles(idents, roles)
+    return assigned
 
 
-def init_roster(root: Path | None = None, *, count: int = DEFAULT_COUNT) -> list[Identity]:
-    if count < 1 or count > MAX_COUNT:
-        raise ValueError(f"count must be 1..{MAX_COUNT}")
+def _apply_roles(
+    idents: list[Identity],
+    roles: dict[str, str],
+    *,
+    buyers: int | None = None,
+    sellers: int | None = None,
+) -> list[RosterAgent]:
+    agents: list[RosterAgent] = []
+    unknown = [ident for ident in idents if ident.fingerprint not in roles]
+    known = [ident for ident in idents if ident.fingerprint in roles]
+    agents.extend(RosterAgent(ident, roles[ident.fingerprint]) for ident in known)
+    n_buyers = sum(1 for a in agents if a.role == "buyer")
+    n_sellers = sum(1 for a in agents if a.role == "seller")
+    want_buyers = buyers if buyers is not None else max(DEFAULT_BUYERS, n_buyers)
+    want_sellers = sellers if sellers is not None else max(DEFAULT_SELLERS, n_sellers)
+    for ident in unknown:
+        if n_buyers < want_buyers:
+            agents.append(RosterAgent(ident, "buyer"))
+            n_buyers += 1
+        elif n_sellers < want_sellers:
+            agents.append(RosterAgent(ident, "seller"))
+            n_sellers += 1
+        else:
+            agents.append(RosterAgent(ident, "seller"))
+            n_sellers += 1
+    return agents
+
+
+def init_roster(
+    root: Path | None = None,
+    *,
+    buyers: int = DEFAULT_BUYERS,
+    sellers: int = DEFAULT_SELLERS,
+) -> list[RosterAgent]:
+    if buyers < 0 or sellers < 0 or buyers > MAX_SIDE or sellers > MAX_SIDE:
+        raise ValueError(f"buyers and sellers must be 0..{MAX_SIDE}")
+    if buyers + sellers < 1:
+        raise ValueError("need at least one agent")
     dest = root or default_roster_dir()
     dest.mkdir(parents=True, exist_ok=True)
     try:
@@ -119,17 +201,24 @@ def init_roster(root: Path | None = None, *, count: int = DEFAULT_COUNT) -> list
     except OSError:
         pass
     existing = load_roster(dest)
-    have = {ident.fingerprint for ident in existing}
-    need = count - len(existing)
+    have = {agent.fingerprint for agent in existing}
+    need = buyers + sellers - len(existing)
     for _ in range(max(0, need)):
         ident = identity_from_seed(_new_seed(), source="roster")
         while ident.fingerprint in have:
             ident = identity_from_seed(_new_seed(), source="roster")
         write_identity(_agent_path(dest, ident.fingerprint), ident)
         have.add(ident.fingerprint)
-        existing.append(ident)
-    _write_manifest(dest, existing)
-    return existing[:count]
+    idents = []
+    for path in sorted((dest / "keys").glob("*.json")):
+        data = json.loads(path.read_text(encoding="utf-8"))
+        idents.append(identity_from_seed(str(data["seed"]), source=str(path)))
+    roles = _load_roles(dest)
+    agents = _apply_roles(idents, roles, buyers=buyers, sellers=sellers)
+    _write_roles(dest, agents)
+    _write_manifest(dest, agents)
+    picked = [a for a in agents if a.role == "buyer"][:buyers] + [a for a in agents if a.role == "seller"][:sellers]
+    return picked
 
 
 def _new_seed() -> str:
@@ -138,31 +227,107 @@ def _new_seed() -> str:
     return private_key_hex(generate_miner_key())
 
 
-def _write_manifest(root: Path, idents: list[Identity]) -> None:
+def _write_manifest(root: Path, agents: list[RosterAgent]) -> None:
     manifest = root / "manifest.json"
-    payload = {"v": "pin/1", "n": len(idents), "agents": public_entries(idents)}
+    payload = {
+        "v": "pin/1",
+        "n": len(agents),
+        "n_buyers": sum(1 for a in agents if a.role == "buyer"),
+        "n_sellers": sum(1 for a in agents if a.role == "seller"),
+        "agents": public_entries(agents),
+    }
     manifest.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     os.chmod(manifest, 0o600)
 
 
+def pair_book(agents: list[RosterAgent], *, pairs: int | None = None) -> list[tuple[RosterAgent, RosterAgent]]:
+    buyers = [a for a in agents if a.role == "buyer"]
+    sellers = [a for a in agents if a.role == "seller"]
+    n = min(len(buyers), len(sellers))
+    if pairs is not None:
+        n = min(n, max(0, pairs))
+    return list(zip(buyers[:n], sellers[:n], strict=False))
+
+
+def build_pair_frames(
+    buyer: RosterAgent,
+    seller: RosterAgent,
+    *,
+    lab: PinLab | None = None,
+    artifact_key: str = "8b-stock",
+    now_ms: int | None = None,
+    offer_nonce: str | None = None,
+) -> tuple[str, str, dict[str, Any]]:
+    """Return (tclk offer line, pin1 quote line, offer dict). Paper holds no value."""
+    lab = lab or PinLab()
+    artifact = lab.named_artifacts[artifact_key]
+    offer = build_pin_bounty(
+        from_did=buyer.did,
+        context=artifact.artifact_id,
+        amount="100",
+        now_ms=now_ms,
+        nonce=offer_nonce or secrets.token_hex(8),
+    )
+    quote = lab.make_quote(
+        QuoteRequest(
+            artifact_id=artifact.artifact_id,
+            sla_class=SlaClass.INTERACTIVE,
+            tier=Tier.T1,
+            n_in=32,
+            n_out=48,
+        )
+    )
+    quote_line = encode_frame(
+        Pin1Frame(
+            type="quote",
+            from_did=seller.did,
+            nonce=secrets.token_hex(8),
+            artifact_id=artifact.artifact_id,
+            ref=str(offer["id"]),
+            offer_id=quote.offer_id,
+            usd_micros=quote.usd_micros,
+            flop_fee=quote.flop_fee,
+            ttl_sec=quote.ttl_sec,
+            rail="paper",
+            tclk_ref=str(offer["id"]),
+        )
+    )
+    return encode_tclk(offer), quote_line, offer
+
+
 def preview_roster(
-    idents: list[Identity],
+    agents: list[RosterAgent],
     operator: Identity,
     *,
-    posts: int | None = None,
+    pairs: int | None = None,
 ) -> dict[str, Any]:
-    n = len(idents)
-    take = n if posts is None else min(n, max(0, posts))
-    samples = [roster_line(ident, index=i + 1, total=n) for i, ident in enumerate(idents[: min(3, take)])]
+    book = pair_book(agents, pairs=pairs)
+    samples: list[dict[str, str]] = []
+    if book:
+        offer_line, quote_line, offer = build_pair_frames(*book[0], offer_nonce="cafebabedead0001")
+        samples.append(
+            {
+                "buyer": book[0][0].did,
+                "seller": book[0][1].did,
+                "offer_id": str(offer["id"]),
+                "tclk_line": offer_line,
+                "pin_quote": quote_line,
+            }
+        )
+    n_buyers = sum(1 for a in agents if a.role == "buyer")
+    n_sellers = sum(1 for a in agents if a.role == "seller")
     return {
-        "room": PIN_OPERATOR_ROOM,
+        "pin_room": PIN_OPERATOR_ROOM,
+        "money_room": TCLK_OFFERS_ROOM,
         "roster_path": ROSTER_NOTE_PATH,
-        "n": n,
-        "posts": take,
+        "n": len(agents),
+        "n_buyers": n_buyers,
+        "n_sellers": n_sellers,
+        "pairs": len(book),
         "operator_did": operator.did,
-        "operator_line": operator_roster_line(operator, total=n),
-        "sample_lines": samples,
-        "agents": public_entries(idents),
+        "operator_line": operator_roster_line(operator, buyers=n_buyers, sellers=n_sellers),
+        "sample": samples,
+        "agents": public_entries(agents),
         "holds_value": False,
         "live": False,
     }
@@ -173,9 +338,9 @@ class RosterPublish:
     roster_status: int
     operator_status: int
     notes_ok: int = 0
-    rooms_ok: int = 0
+    buyer_offers_ok: int = 0
+    seller_quotes_ok: int = 0
     failed: list[str] = field(default_factory=list)
-    posted_lines: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -183,10 +348,11 @@ class RosterPublish:
             "roster_status": self.roster_status,
             "operator_status": self.operator_status,
             "notes_ok": self.notes_ok,
-            "rooms_ok": self.rooms_ok,
+            "buyer_offers_ok": self.buyer_offers_ok,
+            "seller_quotes_ok": self.seller_quotes_ok,
             "failed": self.failed,
-            "posted": len(self.posted_lines),
             "live": True,
+            "holds_value": False,
         }
 
 
@@ -206,81 +372,95 @@ def _post_with_retry(client: httpx.Client, method: str, url: str, json_body: dic
             return last
         time.sleep(max(_wait_seconds(last), delay))
         delay = min(delay * 2, 16)
+    assert last is not None
     return last
 
 
+def _say(
+    client: httpx.Client,
+    origin: str,
+    ident: Identity,
+    room: str,
+    text: str,
+    nonce: str,
+) -> httpx.Response:
+    sig = sign_room(ident, room, nonce, text)
+    return _post_with_retry(
+        client,
+        "POST",
+        f"{origin}/r/{room}",
+        {"did": ident.did, "sig": sig, "nonce": nonce, "text": sweep_line(text)},
+    )
+
+
 def publish_roster(
-    idents: list[Identity],
+    agents: list[RosterAgent],
     operator: Identity,
     *,
-    posts: int | None = None,
+    pairs: int | None = None,
     base: str = DEFAULT_BASE,
-    room: str = PIN_OPERATOR_ROOM,
     timeout: float = 60.0,
 ) -> RosterPublish:
     origin = base.rstrip("/")
-    take = len(idents) if posts is None else min(len(idents), max(0, posts))
-    selected = idents[:take]
+    book = pair_book(agents, pairs=pairs)
     nonce0 = int(time.time() * 1000)
+    lab = PinLab()
+    keys = [k for k in ARTIFACT_KEYS if k in lab.named_artifacts] or ["8b-stock"]
     result = RosterPublish(roster_status=0, operator_status=0)
     with httpx.Client(timeout=timeout, follow_redirects=True) as client:
         roster = _post_with_retry(
             client,
             "POST",
             f"{origin}/kv/{ROSTER_NOTE_NS}/{ROSTER_NOTE_KEY}",
-            {"value": roster_note_body(idents)},
+            {"value": roster_note_body(agents)},
         )
         result.roster_status = roster.status_code
         if roster.status_code not in {200, 409}:
             result.failed.append(f"roster-note:{roster.status_code}")
-        op_text = operator_roster_line(operator, total=len(idents))
-        op_nonce = str(nonce0)
-        op_sig = sign_room(operator, room, op_nonce, op_text)
-        op = _post_with_retry(
-            client,
-            "POST",
-            f"{origin}/r/{room}",
-            {"did": operator.did, "sig": op_sig, "nonce": op_nonce, "text": sweep_line(op_text)},
-        )
+        n_buyers = sum(1 for a in agents if a.role == "buyer")
+        n_sellers = sum(1 for a in agents if a.role == "seller")
+        op_text = operator_roster_line(operator, buyers=n_buyers, sellers=n_sellers)
+        op = _say(client, origin, operator, PIN_OPERATOR_ROOM, op_text, str(nonce0))
         result.operator_status = op.status_code
-        if op.status_code == 200:
-            result.posted_lines.append(op_text)
-        else:
+        if op.status_code != 200:
             result.failed.append(f"operator-room:{op.status_code}")
-        for i, ident in enumerate(selected, start=1):
-            ns, key = did_note_parts(ident.fingerprint)
-            note_val = f"{ident.did} {PIN_OPERATOR_NOTE_TOKEN}"
+        posted = {agent.fingerprint for pair in book for agent in pair}
+        for i, agent in enumerate(agents, start=1):
+            ns, key = did_note_parts(agent.fingerprint)
             note = _post_with_retry(
                 client,
                 "POST",
                 f"{origin}/kv/{ns}/{key}",
-                {"value": note_val, "if_absent": True},
+                {"value": f"{agent.did} {note_token(agent.role)}", "if_absent": True},
             )
             if note.status_code in {200, 409}:
                 result.notes_ok += 1
             else:
-                result.failed.append(f"note:{ident.fingerprint}:{note.status_code}")
-            text = roster_line(ident, index=i, total=len(idents))
-            nonce = str(nonce0 + i)
-            sig = sign_room(ident, room, nonce, text)
-            said = _post_with_retry(
-                client,
-                "POST",
-                f"{origin}/r/{room}",
-                {"did": ident.did, "sig": sig, "nonce": nonce, "text": sweep_line(text)},
+                result.failed.append(f"note:{agent.fingerprint}:{note.status_code}")
+            if agent.fingerprint in posted:
+                continue
+            # Unpaired leftover: role card on /r/pin only.
+            card = f"PIN {agent.role} {i}/{len(agents)} {agent.did} {note_token(agent.role)}"
+            said = _say(client, origin, agent.ident, PIN_OPERATOR_ROOM, card, str(nonce0 + 8000 + i))
+            if said.status_code != 200:
+                result.failed.append(f"card:{agent.fingerprint}:{said.status_code}")
+        for i, (buyer, seller) in enumerate(book, start=1):
+            key = keys[(i - 1) % len(keys)]
+            offer_line, quote_line, _offer = build_pair_frames(
+                buyer, seller, lab=lab, artifact_key=key
             )
-            if said.status_code == 422:
-                text = f"{text} n={nonce}"
-                sig = sign_room(ident, room, nonce, text)
-                said = _post_with_retry(
-                    client,
-                    "POST",
-                    f"{origin}/r/{room}",
-                    {"did": ident.did, "sig": sig, "nonce": nonce, "text": sweep_line(text)},
-                )
-            if said.status_code == 200:
-                result.rooms_ok += 1
-                result.posted_lines.append(text)
+            bought = _say(
+                client, origin, buyer.ident, TCLK_OFFERS_ROOM, offer_line, str(nonce0 + i)
+            )
+            if bought.status_code == 200:
+                result.buyer_offers_ok += 1
             else:
-                result.failed.append(f"room:{ident.fingerprint}:{said.status_code}")
+                result.failed.append(f"offer:{buyer.fingerprint}:{bought.status_code}")
+            sold = _say(
+                client, origin, seller.ident, PIN_OPERATOR_ROOM, quote_line, str(nonce0 + 4000 + i)
+            )
+            if sold.status_code == 200:
+                result.seller_quotes_ok += 1
+            else:
+                result.failed.append(f"quote:{seller.fingerprint}:{sold.status_code}")
     return result
