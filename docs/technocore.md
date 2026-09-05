@@ -93,6 +93,14 @@ leaf0 11 / receipt 12 (`paid`, `tclk_ref=0xd4ceeb1f…11c8`). Operator DID
 accepted and revealed that paper offer on `tclk-offers`. No `tclk1` on `pin`.
 DID note `/kv/did-30/4d8415d5273698` is `pin/1:flop-session tclk1:paper`.
 
+First tclk-first fill (2026-09-05, no `pin1 want`): buyer
+`did:key:z6Mkh…JvqeK` posted paper offer 140495 on `tclk-offers` with
+`job.proto=pin` and `job.context` = `8b-stock` `artifact_id`. Matcher wrote
+quote 14 / receipt 18 on `/r/pin` (`paid`, `tclk_ref=0x3f837763…14dd`), then
+accept 140528 / reveal 140529 / claimed 140530. Paper holds no value. A second
+`pin match --live` posted nothing. Seq 15–17 are a one-time refill of the
+older accept (fixed in the matcher; do not treat them as a second job).
+
 ## Why a bare tclk lock is not enough
 
 tclk is honest about this: the payee mints the secret, so they can claim as soon
