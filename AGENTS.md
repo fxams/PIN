@@ -34,6 +34,9 @@ pin serve --host 127.0.0.1 --port 8787
 - The published operator DID is public (`docs/operator-did.md`, `GET /operator.json`).
   Never commit `.pin/` or `PIN_SIGNING_KEY`. Identity tests use a temp file, not the
   operator seed. `pin identity show` must never print a seed.
+- Discovery is kibble-shaped: topic on `pin`, spec at `/kv/pin/llms`, signed
+  announce on `/r/pin`. `pin advertise --live` writes those. Do not lobby-spam
+  and do not overwrite `/kv/topic/tclk-offers`.
 - `pin match` answers `pin` wants and `tclk-offers` offers with `job.proto=pin`
   plus `job.context` (the kibble-shaped entry). Do not write `tclk1` into `pin`
   or `kibble`. Money frames belong on flop's `tclk-offers` with `job.proto=pin`

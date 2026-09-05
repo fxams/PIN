@@ -112,7 +112,8 @@ def test_published_operator_and_http_lanes(monkeypatch, tmp_path: Path):
     assert op["legacy_room"] == "pin-jobs"
     assert op["owned_room"] == "d-pin"
     assert op["money_room"] == "tclk-offers"
-    assert "Signed pin1 only" in op["topic"]
+    assert "job.proto=pin" in op["topic"]
+    assert op["spec_path"] == "/kv/pin/llms"
 
 
 def test_capabilities_do_not_depend_on_cwd_identity(monkeypatch, tmp_path: Path):
@@ -200,6 +201,44 @@ def test_announce_live_refreshes_stale_note(tmp_path: Path, monkeypatch):
     assert "seed" not in str(calls)
 
 
+def test_advertise_live_writes_topic_spec_and_announce(tmp_path: Path, monkeypatch):
+    from pin.technocore_client import advertise_live
+
+    ident = init_identity(tmp_path / "id.json")
+    urls: list[str] = []
+
+    class _Resp:
+        def __init__(self, status: int, text: str) -> None:
+            self.status_code = status
+            self.text = text
+
+    class _Client:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args) -> None:
+            return None
+
+        def post(self, url: str, json: dict | None = None):
+            urls.append(url)
+            return _Resp(200, "ok")
+
+    monkeypatch.setattr("pin.technocore_client.httpx.Client", _Client)
+    result = advertise_live(ident, base="https://technocore.chat", room="pin", nonce="1")
+    assert result.topic_status == 200
+    assert result.spec_status == 200
+    assert result.announce.room_status == 200
+    assert result.spec_path == "/kv/pin/llms"
+    assert "job.proto=pin" in result.topic
+    assert any(u.endswith("/kv/topic/pin") for u in urls)
+    assert any(u.endswith("/kv/pin/llms") for u in urls)
+    assert any(u.endswith("/r/pin") for u in urls)
+    assert "seed" not in str(urls)
+
+
 def test_cli_show_and_announce_never_print_seed(tmp_path: Path):
     from typer.testing import CliRunner
 
@@ -222,4 +261,9 @@ def test_cli_show_and_announce_never_print_seed(tmp_path: Path):
     assert topic.exit_code == 0
     assert "seed" not in topic.stdout
     assert "/kv/topic/pin" in topic.stdout
-    assert "Signed pin1 only" in topic.stdout
+    assert "job.proto=pin" in topic.stdout
+    advertised = runner.invoke(app, ["advertise", "--path", str(dest)])
+    assert advertised.exit_code == 0
+    assert "seed" not in advertised.stdout
+    assert "/kv/pin/llms" in advertised.stdout
+    assert "job.proto=pin" in advertised.stdout

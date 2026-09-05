@@ -29,7 +29,14 @@ PIN_LEGACY_ROOM = "pin-jobs"
 PIN_OWNED_ROOM = "d-pin"
 TCLK_OFFERS_ROOM = "tclk-offers"
 KIBBLE_ROOM = "kibble"
-PIN_PUBLIC_TOPIC = "PIN public board. Signed pin1 only. Money on tclk-offers proto=pin."
+PIN_SPEC_NOTE_NS = "pin"
+PIN_SPEC_NOTE_KEY = "llms"
+PIN_SPEC_NOTE_PATH = f"/kv/{PIN_SPEC_NOTE_NS}/{PIN_SPEC_NOTE_KEY}"
+PIN_SPEC_NOTE_URL = f"https://technocore.chat{PIN_SPEC_NOTE_PATH}"
+PIN_PUBLIC_TOPIC = (
+    "PIN pinned inference. Start: tclk-offers job.proto=pin context=<artifact>. "
+    f"Spec {PIN_SPEC_NOTE_URL}"
+)
 
 ENV_IDENTITY_PATH = "PIN_IDENTITY_PATH"
 ENV_SIGNING_KEY = "PIN_SIGNING_KEY"
@@ -72,6 +79,7 @@ def published_operator() -> dict[str, str]:
         "legacy_room": PIN_LEGACY_ROOM,
         "owned_room": PIN_OWNED_ROOM,
         "money_room": TCLK_OFFERS_ROOM,
+        "spec_path": PIN_SPEC_NOTE_PATH,
         "topic": PIN_PUBLIC_TOPIC,
     }
 

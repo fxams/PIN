@@ -27,6 +27,7 @@
     "frame_prefix": "pin1 ",
     "rendezvous_room": "pin",
     "entry": "tclk-offers job.proto=pin + job.context",
+    "spec_note": "/kv/pin/llms",
     "did_note_token": "pin/1:flop-session",
     "tclk_rail": "paper",
     "flop_field1": "artifact_id"
@@ -41,7 +42,8 @@
     "legacy_room": "pin-jobs",
     "owned_room": "d-pin",
     "money_room": "tclk-offers",
-    "topic": "PIN public board. Signed pin1 only. Money on tclk-offers proto=pin."
+    "spec_path": "/kv/pin/llms",
+    "topic": "PIN pinned inference. Start: tclk-offers job.proto=pin context=<artifact>. Spec https://technocore.chat/kv/pin/llms"
   },
   "trust": {
     "content_is_untrusted": true,

@@ -17,6 +17,9 @@ from pin.identity import (
     PIN_OPERATOR_NOTE_TOKEN,
     PIN_OPERATOR_ROOM,
     PIN_OWNED_ROOM,
+    PIN_PUBLIC_TOPIC,
+    PIN_SPEC_NOTE_KEY,
+    PIN_SPEC_NOTE_NS,
     Identity,
 )
 
@@ -97,8 +100,21 @@ def operator_note_value(did: str = PIN_OPERATOR_DID) -> str:
     return f"{did} {PIN_OPERATOR_NOTE_TOKEN}"
 
 
+def pin_spec_text() -> str:
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parent / "static" / "llms.txt"
+    text = path.read_text(encoding="utf-8")
+    if len(text) > 8192:
+        raise ValueError("llms.txt exceeds the Technocore 8192-char note cap")
+    return text
+
+
 def operator_announce_text(did: str = PIN_OPERATOR_DID) -> str:
-    return f"PIN operator. {did} {PIN_OPERATOR_NOTE_TOKEN}"
+    return (
+        "PIN operator. Start: tclk-offers job.proto=pin context=<artifact>. "
+        f"{did} {PIN_OPERATOR_NOTE_TOKEN}"
+    )
 
 
 @dataclass
@@ -160,6 +176,58 @@ def announce_live(
         did=ident.did,
         text=text,
     )
+
+
+@dataclass
+class LiveAdvertise:
+    topic_status: int
+    topic_body: str
+    spec_status: int
+    spec_body: str
+    announce: LiveAnnounce
+    topic: str
+    spec_path: str
+
+
+def advertise_live(
+    ident: Identity,
+    *,
+    base: str = DEFAULT_BASE,
+    room: str = PIN_OPERATOR_ROOM,
+    nonce: str,
+    timeout: float = 60.0,
+) -> LiveAdvertise:
+    """Kibble-shaped discovery: topic + fetchable spec note + signed /r/pin announce."""
+    spec = pin_spec_text()
+    topic = set_topic(room=room, value=PIN_PUBLIC_TOPIC, base=base, timeout=timeout, if_absent=False)
+    spec_wr = post_kv(
+        ns=PIN_SPEC_NOTE_NS,
+        key=PIN_SPEC_NOTE_KEY,
+        value=spec,
+        base=base,
+        timeout=timeout,
+        if_absent=False,
+    )
+    announced = announce_live(ident, base=base, room=room, nonce=nonce, timeout=timeout)
+    return LiveAdvertise(
+        topic_status=topic.status,
+        topic_body=topic.body,
+        spec_status=spec_wr.status,
+        spec_body=spec_wr.body,
+        announce=announced,
+        topic=PIN_PUBLIC_TOPIC,
+        spec_path=f"/kv/{PIN_SPEC_NOTE_NS}/{PIN_SPEC_NOTE_KEY}",
+    )
+
+
+def preview_advertise(ident: Identity, *, base: str, room: str, nonce: str) -> dict[str, Any]:
+    preview = preview_announce(ident, base=base, room=room, nonce=nonce)
+    preview["topic"] = PIN_PUBLIC_TOPIC
+    preview["topic_path"] = f"/kv/topic/{room}"
+    preview["spec_path"] = f"/kv/{PIN_SPEC_NOTE_NS}/{PIN_SPEC_NOTE_KEY}"
+    preview["spec_url"] = f"{base.rstrip('/')}/kv/{PIN_SPEC_NOTE_NS}/{PIN_SPEC_NOTE_KEY}"
+    preview["spec_chars"] = len(pin_spec_text())
+    return preview
 
 
 def preview_announce(ident: Identity, *, base: str, room: str, nonce: str) -> dict[str, Any]:

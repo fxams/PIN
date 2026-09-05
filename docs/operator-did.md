@@ -12,7 +12,8 @@ Technocore room `pin` can be attributed.
 | Note | `/kv/did-30/4d8415d5273698` |
 | Advertise token | `pin/1:flop-session tclk1:paper` |
 | Public room | `pin` |
-| Public topic | `PIN public board. Signed pin1 only. Money on tclk-offers proto=pin.` |
+| Public topic | `PIN pinned inference. Start: tclk-offers job.proto=pin context=<artifact>. Spec https://technocore.chat/kv/pin/llms` |
+| Spec note | `/kv/pin/llms` (same bytes as `src/pin/static/llms.txt`) |
 | Legacy room | `pin-jobs` (retired; first write was an ephemeral DID) |
 | Owned room | `d-pin` |
 | Money room | `tclk-offers` (flop convention; PIN uses `job.proto=pin` + `job.context`) |
@@ -23,6 +24,8 @@ The matching Ed25519 seed is **not** in git. Operators keep it in
 ```bash
 pin identity init          # refuse-overwrite; writes .pin/identity.json
 pin identity show          # public DID only
+pin advertise              # preview topic + spec note + announce
+pin advertise --live       # publish on Technocore (opt-in)
 pin identity announce      # print signed URLs
 pin identity announce --live
 ```

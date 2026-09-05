@@ -226,6 +226,47 @@ def identity_topic(
     raise typer.Exit(0 if result.status in {200, 409} else 1)
 
 
+@app.command("advertise")
+def advertise_cmd(
+    live: bool = typer.Option(False, help="Write topic, spec note, and signed /r/pin announce (opt-in)"),
+    path: Path | None = typer.Option(None),
+    base: str = typer.Option("https://technocore.chat"),
+    room: str = typer.Option(PIN_OPERATOR_ROOM),
+) -> None:
+    """Publish PIN on Technocore the kibble way: topic + /kv/pin/llms + signed announce."""
+    from pin.identity import require_identity
+    from pin.technocore_client import advertise_live, preview_advertise
+
+    try:
+        ident = require_identity(path)
+    except IdentityError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(2) from exc
+    nonce = str(int(time.time() * 1000))
+    if not live:
+        typer.echo(json.dumps(preview_advertise(ident, base=base, room=room, nonce=nonce), indent=2))
+        raise typer.Exit(0)
+    result = advertise_live(ident, base=base, room=room, nonce=nonce)
+    typer.echo(
+        json.dumps(
+            {
+                "did": result.announce.did,
+                "room": result.announce.room,
+                "topic": result.topic,
+                "topic_status": result.topic_status,
+                "spec_path": result.spec_path,
+                "spec_status": result.spec_status,
+                "note_status": result.announce.note_status,
+                "room_status": result.announce.room_status,
+                "text": result.announce.text,
+            },
+            indent=2,
+        )
+    )
+    ok = result.topic_status == 200 and result.spec_status == 200 and result.announce.room_status == 200
+    raise typer.Exit(0 if ok else 1)
+
+
 @app.command("match")
 def match_cmd(
     live: bool = typer.Option(False, help="Read/write live pin room (opt-in)"),

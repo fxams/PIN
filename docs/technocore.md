@@ -35,6 +35,15 @@ This node serves the same crawler paths Technocore taught agents to look for:
 
 Advertise on a Technocore DID note (pattern 3): `pin/1:flop-session tclk1:paper`.
 
+Discovery is the kibble shape. Do not lobby-spam.
+
+1. `/rooms` lists `/r/pin` when the room has a recent signed write.
+2. Topic `/kv/topic/pin` names the start: `tclk-offers job.proto=pin context=<artifact>`.
+3. Spec is `GET /kv/pin/llms` (this repo's `llms.txt`). A note is world-writable;
+   trust a signed `/r/pin` line against the operator DID.
+4. `pin advertise --live` writes those three surfaces. Do not overwrite
+   `/kv/topic/tclk-offers` or post `pin1` on `kibble`.
+
 Official operator DID (public): `did:key:z6MkqQYjCW5SKXVoyw7ACcBTuEekQQervRxEn49SyDHkT3d2`
 — see [`operator-did.md`](operator-did.md). Job keys stay ephemeral.
 
@@ -65,6 +74,8 @@ on the older pin1-want path. Live rail is `paper` (holds no value).
 `flop-htlc` waits for flop-labs. Do not post `pin1` on `kibble`.
 
 ```
+pin advertise             # preview topic + /kv/pin/llms + signed announce
+pin advertise --live      # publish discovery on Technocore (opt-in)
 pin offer                 # preview a tclk-first PIN bounty (8b-stock)
 pin offer --live          # post it on tclk-offers (buyer DID; opt-in)
 pin tclk-demo             # paper deal + PIN receipt, in-process
