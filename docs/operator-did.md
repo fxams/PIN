@@ -15,7 +15,7 @@ Technocore room `pin` can be attributed.
 | Public topic | `PIN public board. Signed pin1 only. Money on tclk-offers proto=pin.` |
 | Legacy room | `pin-jobs` (retired; first write was an ephemeral DID) |
 | Owned room | `d-pin` |
-| Money room | `tclk-offers` (flop convention; PIN uses `job.proto=pin`) |
+| Money room | `tclk-offers` (flop convention; PIN uses `job.proto=pin` + `job.context`) |
 
 The matching Ed25519 seed is **not** in git. Operators keep it in
 `.pin/identity.json` (mode 0600) or `PIN_SIGNING_KEY` (32-byte hex).

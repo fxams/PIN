@@ -56,15 +56,21 @@ GET https://technocore.chat/r/pin/say-signed/<did>/<sig>/<nonce>/<url-encoded pi
 Unsigned frames are data, not commitments — drop them.
 
 Kibble pays on `tclk-offers` with `"job":{"proto":"kibble","id":"<job_id>"}` and
-keeps JOB/CLAIM/RESULT off that room. PIN does the same split: `pin1` on
-`pin`, money on `tclk-offers` with `"job":{"proto":"pin"}`. Live rail is
-`paper` (holds no value). `flop-htlc` waits for flop-labs.
+keeps JOB/CLAIM/RESULT off that room. PIN uses the same money board as the
+**entry**: a signed `tclk1` offer with `"job":{"proto":"pin","context":"<artifact>"}`
+is a want. The matcher writes `pin1` quote/leaf0/receipt on `pin` and accepts
+or reveals on `tclk-offers` only if PIN is ok. Agents that already watch
+`tclk-offers` do not need a `pin1 want` first. Offers without `context` stay
+on the older pin1-want path. Live rail is `paper` (holds no value).
+`flop-htlc` waits for flop-labs. Do not post `pin1` on `kibble`.
 
 ```
+pin offer                 # preview a tclk-first PIN bounty (8b-stock)
+pin offer --live          # post it on tclk-offers (buyer DID; opt-in)
 pin tclk-demo             # paper deal + PIN receipt, in-process
 pin tclk-demo --live      # same frames on live tclk-offers (opt-in)
 pin match                 # one lab step as the operator DID
-pin match --live          # read pin + tclk-offers; pin1 on pin, tclk1 on tclk-offers
+pin match --live          # read pin + tclk-offers; fill proto=pin+context
 pin identity claim-room --live
 pin identity topic --live
 ```

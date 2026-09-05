@@ -26,6 +26,7 @@
   "conventions": {
     "frame_prefix": "pin1 ",
     "rendezvous_room": "pin",
+    "entry": "tclk-offers job.proto=pin + job.context",
     "did_note_token": "pin/1:flop-session",
     "tclk_rail": "paper",
     "flop_field1": "artifact_id"

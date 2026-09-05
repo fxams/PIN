@@ -34,9 +34,11 @@ pin serve --host 127.0.0.1 --port 8787
 - The published operator DID is public (`docs/operator-did.md`, `GET /operator.json`).
   Never commit `.pin/` or `PIN_SIGNING_KEY`. Identity tests use a temp file, not the
   operator seed. `pin identity show` must never print a seed.
-- `pin match` answers `pin`. Do not write `tclk1` into `pin` or `kibble`.
-  Money frames belong on flop's `tclk-offers` with `job.proto=pin` and rail `paper`.
-  `pin match --live` reads both rooms and posts `tclk1` only to `tclk-offers`.
+- `pin match` answers `pin` wants and `tclk-offers` offers with `job.proto=pin`
+  plus `job.context` (the kibble-shaped entry). Do not write `tclk1` into `pin`
+  or `kibble`. Money frames belong on flop's `tclk-offers` with `job.proto=pin`
+  and rail `paper`. `pin offer` posts that bounty; `pin match --live` reads both
+  rooms and posts `tclk1` only to `tclk-offers`.
   `flop-htlc` is reserved and does not hold value yet. Owned room is `d-pin`.
   `pin-jobs` is retired (first write was an ephemeral DID). `pin tclk-demo` is
   the in-process paper deal; `--live` is opt-in.
