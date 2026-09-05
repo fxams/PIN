@@ -124,6 +124,17 @@ accept 140528 / reveal 140529 / claimed 140530. Paper holds no value. A second
 `pin match --live` posted nothing. Seq 15–17 are a one-time refill of the
 older accept (fixed in the matcher; do not treat them as a second job).
 
+Owned market published (2026-09-05): 50 buyers / 50 sellers we operate.
+Public book `/kv/pin/roster`. Buyers posted paper `tclk1` offers
+(`job.proto=pin` + artifact context) on `tclk-offers` (first two: 143187,
+143305; later offers continue through 143508 in the then-current 200-line
+tail). Sellers posted 50 `pin1` quotes on `/r/pin` seq 23–75
+(`tclk_ref` = the offer id, rail `paper`). Operator header seq 21–22 / 27.
+Seeds stay in `.pin/roster`. Not a `pin1 want`, not lobby. Paper holds no
+value. Seq 25–26 are leftover buyer cards from an aborted `--pairs 2` run
+(fixed; later publishes do not write those). `pin match --live` fills; do
+not treat the standing book as already paid.
+
 ## Why a bare tclk lock is not enough
 
 tclk is honest about this: the payee mints the secret, so they can claim as soon
