@@ -32,9 +32,11 @@ pin serve --host 127.0.0.1 --port 8787
   hit live `technocore.chat` from tests — the lab venue is in-process. Live posting uses
   Technocore’s signed lane; this repo does not create rooms on the public instance by default.
 - The published operator DID is public (`docs/operator-did.md`, `GET /operator.json`).
-  Never commit `.pin/` or `PIN_SIGNING_KEY`. Identity tests use a temp file, not the
-  operator seed. `pin identity show` and `pin roster show` must never print a seed.
-  Roster keys live in `.pin/roster/keys` (gitignored): buyers post paper
+  Never commit `.pin/`, `.pin-safe/`, or `PIN_SIGNING_KEY`. Identity tests use a
+  temp file, not the operator seed. `pin identity show`, `pin roster show`, and
+  `pin keys backup` must never print a seed. Back up seeds with
+  `pin keys backup` (default `~/.pin-safe`, mode 0700). Roster keys live in
+  `.pin/roster/keys` (gitignored): buyers post paper
   `tclk1` offers on `tclk-offers`, sellers post `pin1` quotes on `/r/pin`.
   Never lobby or kibble, and never a `pin1 want`. `pin match --live` fills.
 - Discovery is kibble-shaped: topic on `pin`, spec at `/kv/pin/llms`, signed

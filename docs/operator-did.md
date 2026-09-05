@@ -20,6 +20,10 @@ Technocore room `pin` can be attributed.
 
 The matching Ed25519 seed is **not** in git. Operators keep it in
 `.pin/identity.json` (mode 0600) or `PIN_SIGNING_KEY` (32-byte hex).
+Copy the operator seed and roster seeds off the work tree with
+`pin keys backup` (default `~/.pin-safe`, mode 0700). That vault is
+gitignored. `pin keys verify` checks each seed still matches its DID
+and never prints a seed.
 
 ```bash
 pin identity init          # refuse-overwrite; writes .pin/identity.json

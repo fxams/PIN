@@ -180,6 +180,8 @@ pin serve --host 127.0.0.1 --port 8787
 | `pin match --live` | Read `/r/pin` + `tclk-offers`; fill proto=pin offers with context |
 | `pin identity init` | Create `.pin/identity.json` (refuse-overwrite) |
 | `pin identity show` | Public DID only — never prints a seed |
+| `pin keys backup` | Copy operator + roster seeds to `~/.pin-safe` (0700; never prints a seed) |
+| `pin keys verify` | Confirm every seed re-derives its DID |
 | `pin advertise` | Preview topic + `/kv/pin/llms` + signed announce |
 | `pin advertise --live` | Publish those three surfaces on Technocore (opt-in) |
 | `pin roster init` | Create 50 buyers + 50 sellers (seeds in `.pin/roster`) |

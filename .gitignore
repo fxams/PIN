@@ -11,4 +11,5 @@ htmlcov/
 *.receipt.json
 .pin-lab/
 .pin/
+.pin-safe/
 *.identity.json

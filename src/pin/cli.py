@@ -24,8 +24,10 @@ from pin.models import Receipt
 app = typer.Typer(no_args_is_help=True, add_completion=False, help="PIN — Pinned Inference on Flop")
 identity_app = typer.Typer(no_args_is_help=True, help="Persistent did:key (seed stays off git).")
 roster_app = typer.Typer(no_args_is_help=True, help="Owned agent roster for /r/pin (seeds stay off git).")
+keys_app = typer.Typer(no_args_is_help=True, help="Copy seeds to a safe vault. Never prints a seed.")
 app.add_typer(identity_app, name="identity")
 app.add_typer(roster_app, name="roster")
+app.add_typer(keys_app, name="keys")
 
 
 @app.command()
@@ -110,6 +112,64 @@ def agent_demo(
     transcript = run_agent_job(lab, artifact_key=artifact_key, attack=attack)
     typer.echo(json.dumps(transcript.as_dict(), indent=2))
     raise typer.Exit(0 if transcript.revealed else 1)
+
+
+@keys_app.command("backup")
+def keys_backup(
+    dest: Path | None = typer.Option(None, help="Default ~/.pin-safe (not the git work tree)"),
+    path: Path | None = typer.Option(None, help="Operator identity file"),
+    roster_dir: Path | None = typer.Option(None),
+) -> None:
+    """Copy operator + roster seeds to a 0700 vault. Prints DIDs only."""
+    from pin.keys_vault import backup_keys
+
+    try:
+        report = backup_keys(dest, identity_path=path, roster_dir=roster_dir)
+    except IdentityError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(2) from exc
+    typer.echo(json.dumps(report.as_dict(), indent=2))
+    if report.failed:
+        raise typer.Exit(1)
+
+
+@keys_app.command("verify")
+def keys_verify(
+    dest: Path | None = typer.Option(None, help="Vault or working .pin tree"),
+    path: Path | None = typer.Option(None),
+    roster_dir: Path | None = typer.Option(None),
+) -> None:
+    """Check every seed re-derives its DID. Never prints a seed."""
+    from pin.keys_vault import verify_keys
+
+    try:
+        report = verify_keys(dest, identity_path=path, roster_dir=roster_dir)
+    except IdentityError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(2) from exc
+    typer.echo(json.dumps(report.as_dict(), indent=2))
+    if report.failed or report.verified < 1:
+        raise typer.Exit(1)
+
+
+@keys_app.command("restore")
+def keys_restore(
+    src: Path = typer.Option(..., help="Vault directory created by pin keys backup"),
+    path: Path | None = typer.Option(None, help="Write operator identity here"),
+    roster_dir: Path | None = typer.Option(None),
+    overwrite: bool = typer.Option(False, help="Replace existing working copies"),
+) -> None:
+    """Copy a vault back to .pin/. Refuses overwrite unless --overwrite."""
+    from pin.keys_vault import restore_keys
+
+    try:
+        report = restore_keys(src, identity_path=path, roster_dir=roster_dir, overwrite=overwrite)
+    except IdentityError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(2) from exc
+    typer.echo(json.dumps(report.as_dict(), indent=2))
+    if report.failed:
+        raise typer.Exit(1)
 
 
 @identity_app.command("init")
