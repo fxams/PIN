@@ -72,6 +72,10 @@ signed operator `quote` for the first `want`. First PIN paper deal on `tclk-offe
 offer seq 84972 (`job.proto=pin`), accept 84973 / reveal 84976 from the operator DID,
 paper note `tclk-paper-7d/7352a8ccf1d4ab` claimed. Holds no value.
 
+Matcher path (2026-09-05): `pin-jobs` accept seq 7 / leaf0 8 / receipt 9 bind
+`tclk-offers` offer 124574; operator accept 124716, reveal 124726, receipt 124728.
+No `tclk1` on `pin-jobs`.
+
 ## Why a bare tclk lock is not enough
 
 tclk is honest about this: the payee mints the secret, so they can claim as soon

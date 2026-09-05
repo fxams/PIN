@@ -74,6 +74,8 @@ class OperatorMatcher:
         self.venue = venue or lab.venue
         self.attack = attack
         self.quoted: dict[str, Quote] = {}
+        self.quoted_by_offer: dict[str, Quote] = {}
+        self.offer_to_want: dict[str, str] = {}
         self.wants: dict[str, Pin1Frame] = {}
         self.locks: dict[str, TclkLock] = {}
         self.done_accepts: set[str] = set()
@@ -152,7 +154,9 @@ class OperatorMatcher:
         return result
 
     def _remember_quote(self, quote_frame: Pin1Frame) -> None:
-        if not quote_frame.ref or quote_frame.ref in self.quoted or not quote_frame.artifact_id:
+        if not quote_frame.ref or not quote_frame.artifact_id:
+            return
+        if quote_frame.offer_id and quote_frame.offer_id in self.quoted_by_offer:
             return
         try:
             rebuilt = self.lab.make_quote(
@@ -166,9 +170,22 @@ class OperatorMatcher:
             )
         except KeyError:
             return
-        self.quoted[quote_frame.ref] = rebuilt
+        updates: dict[str, Any] = {}
         if quote_frame.offer_id:
-            self.locks.setdefault(quote_frame.offer_id, mint_hashlock(rebuilt.flop_fee, rail="paper"))
+            updates["offer_id"] = quote_frame.offer_id
+        if quote_frame.usd_micros is not None:
+            updates["usd_micros"] = quote_frame.usd_micros
+        if quote_frame.flop_fee is not None:
+            updates["flop_fee"] = quote_frame.flop_fee
+        if quote_frame.ttl_sec is not None:
+            updates["ttl_sec"] = quote_frame.ttl_sec
+        if updates:
+            rebuilt = rebuilt.model_copy(update=updates)
+        self.quoted.setdefault(quote_frame.ref, rebuilt)
+        if rebuilt.offer_id:
+            self.quoted_by_offer[rebuilt.offer_id] = rebuilt
+            self.offer_to_want[rebuilt.offer_id] = quote_frame.ref
+            self.locks.setdefault(rebuilt.offer_id, mint_hashlock(rebuilt.flop_fee, rail="paper"))
 
 
     def _quote_want(self, want: Pin1Frame, result: MatchStep) -> str | None:
@@ -213,6 +230,8 @@ class OperatorMatcher:
             )
         )
         self.quoted[want.nonce] = quote
+        self.quoted_by_offer[quote.offer_id] = quote
+        self.offer_to_want[quote.offer_id] = want.nonce
         self.wants[want.nonce] = want
         self.locks[quote.offer_id] = mint_hashlock(quote.flop_fee, rail="paper")
         self.venue.say(PIN_OPERATOR_ROOM, "pin-operator", line, signed=True, did=self.ident.did)
@@ -223,11 +242,12 @@ class OperatorMatcher:
             return []
         if accept.job_id and accept.job_id in self.done_job_ids:
             return []
-        quote = next((q for q in self.quoted.values() if q.offer_id == accept.offer_id), None)
+        quote = self.quoted_by_offer.get(accept.offer_id)
         if quote is None:
             result.skipped.append("accept-unknown-offer")
             return []
-        want = next((w for n, w in self.wants.items() if self.quoted[n].offer_id == accept.offer_id), None)
+        want_nonce = self.offer_to_want.get(accept.offer_id)
+        want = self.wants.get(want_nonce) if want_nonce else None
         key = artifact_key_for_id(self.lab, quote.artifact_id)
         if key is None or want is None:
             result.skipped.append("accept-missing-want")
@@ -238,9 +258,12 @@ class OperatorMatcher:
             sla=SlaClass(want.sla or "interactive"),
             max_new_tokens=want.n_out or 48,
         )
-        outcome = self.lab.run_job(
-            spec, offer_id=quote.offer_id, n_in=want.n_in or 32, attack=self.attack
-        )
+        try:
+            outcome = self.lab.run_job(
+                spec, offer_id=quote.offer_id, n_in=want.n_in or 32, attack=self.attack
+            )
+        except KeyError:
+            outcome = self.lab.run_job(spec, n_in=want.n_in or 32, attack=self.attack)
         rec = outcome.receipt
         self.done_accepts.add(accept.offer_id)
         if rec is None:

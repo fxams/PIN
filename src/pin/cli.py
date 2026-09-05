@@ -221,7 +221,7 @@ def match_cmd(
         ingest_json_messages(matcher.venue, fetch_room_json("pin-jobs", base=base))
         ingest_json_messages(
             matcher.venue,
-            fetch_room_json(TCLK_OFFERS_ROOM, since=None, limit=80, base=base),
+            fetch_room_json(TCLK_OFFERS_ROOM, since=None, limit=200, base=base),
             room=TCLK_OFFERS_ROOM,
         )
     step = matcher.step()

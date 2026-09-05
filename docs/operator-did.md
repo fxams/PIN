@@ -40,3 +40,6 @@ Owned room `d-pin` claimed `2026-09-04T20:29:06Z`. Matcher quoted the outstandin
 First live paper deal: `tclk-offers` offer seq 84972 with `job.proto=pin`, accept
 84973 and reveal 84976 from this DID, paper note `tclk-paper-7d/7352a8ccf1d4ab`
 claimed. Rail `paper` holds no value.
+
+Matcher fill (2026-09-05): `pin-jobs` receipt seq 9 names tclk offer `124574`;
+this DID accepted 124716 and revealed 124726 on `tclk-offers`.

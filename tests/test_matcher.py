@@ -63,6 +63,113 @@ def test_matcher_quotes_and_fills_as_operator(tmp_path):
     assert again.receipts == []
 
 
+def test_matcher_fills_ingested_quote_offer_id(tmp_path):
+    """A later match process must honor the offer_id already on the tape."""
+    lab = PinLab()
+    ident = _operator(tmp_path)
+    artifact = lab.named_artifacts["8b-stock"]
+    _, agent_did, _ = new_agent_identity()
+    want = encode_frame(
+        Pin1Frame(
+            type="want",
+            from_did=agent_did,
+            nonce="aa11bb22cc33dd77",
+            artifact_id=artifact.artifact_id,
+            tier="T1",
+            sla="interactive",
+            n_in=32,
+            n_out=48,
+            max_usd=10_000_000,
+        )
+    )
+    first = OperatorMatcher(lab, ident)
+    lab.venue.say("pin-jobs", "agent", want, signed=True, did=agent_did)
+    quoted = first.step()
+    offer = decode_frame(quoted.quotes[0])
+    later = OperatorMatcher(PinLab(), ident, venue=lab.venue)
+    spec = lab.default_spec()
+    accept = encode_frame(
+        Pin1Frame(
+            type="accept",
+            from_did=agent_did,
+            nonce="ee11ff22aa33bb77",
+            offer_id=offer.offer_id,
+            job_id=spec.job_id,
+            rail="paper",
+        )
+    )
+    lab.venue.say("pin-jobs", "agent", accept, signed=True, did=agent_did)
+    filled = later.step()
+    assert filled.receipts
+    assert "accept-unknown-offer" not in filled.skipped
+
+
+def test_matcher_fills_second_quote_for_same_want(tmp_path):
+    lab = PinLab()
+    ident = _operator(tmp_path)
+    artifact = lab.named_artifacts["8b-stock"]
+    _, agent_did, _ = new_agent_identity()
+    want = encode_frame(
+        Pin1Frame(
+            type="want",
+            from_did=agent_did,
+            nonce="aa11bb22cc33dd88",
+            artifact_id=artifact.artifact_id,
+            tier="T1",
+            sla="interactive",
+            n_in=32,
+            n_out=48,
+            max_usd=10_000_000,
+        )
+    )
+    lab.venue.say("pin-jobs", "agent", want, signed=True, did=agent_did)
+    quote_a = encode_frame(
+        Pin1Frame(
+            type="quote",
+            from_did=ident.did,
+            nonce="q1q1q1q1q1q1q1q1",
+            artifact_id=artifact.artifact_id,
+            ref="aa11bb22cc33dd88",
+            offer_id="aa" * 32,
+            usd_micros=17,
+            flop_fee=347,
+            ttl_sec=15,
+            rail="paper",
+        )
+    )
+    quote_b = encode_frame(
+        Pin1Frame(
+            type="quote",
+            from_did=ident.did,
+            nonce="q2q2q2q2q2q2q2q2",
+            artifact_id=artifact.artifact_id,
+            ref="aa11bb22cc33dd88",
+            offer_id="bb" * 32,
+            usd_micros=17,
+            flop_fee=347,
+            ttl_sec=15,
+            rail="paper",
+        )
+    )
+    lab.venue.say("pin-jobs", "op", quote_a, signed=True, did=ident.did)
+    lab.venue.say("pin-jobs", "op", quote_b, signed=True, did=ident.did)
+    spec = lab.default_spec()
+    accept = encode_frame(
+        Pin1Frame(
+            type="accept",
+            from_did=agent_did,
+            nonce="ee11ff22aa33bb88",
+            offer_id="bb" * 32,
+            job_id=spec.job_id,
+            rail="paper",
+        )
+    )
+    lab.venue.say("pin-jobs", "agent", accept, signed=True, did=agent_did)
+    filled = OperatorMatcher(lab, ident).step()
+    assert filled.receipts
+    assert "accept-unknown-offer" not in filled.skipped
+
+
 def test_matcher_skips_unknown_artifact(tmp_path):
     lab = PinLab()
     ident = _operator(tmp_path)
