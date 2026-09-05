@@ -429,5 +429,19 @@ def make_receipt(
     return validate_frame(frame)
 
 
-def pin_job(job_id: str) -> dict[str, str]:
-    return {"id": job_id, "proto": "pin"}
+def pin_job(
+    job_id: str,
+    *,
+    artifact_id: str | None = None,
+    artifact_key: str | None = None,
+    context: str | None = None,
+) -> dict[str, str]:
+    """PIN bounty on tclk-offers. `context` names the artifact so tclk-first agents need no /r/pin want."""
+    job: dict[str, str] = {"id": job_id, "proto": "pin"}
+    if context:
+        job["context"] = context
+    elif artifact_id or artifact_key:
+        from pin.tclk_entry import pin_job_context
+
+        job["context"] = pin_job_context(artifact_id=artifact_id, artifact_key=artifact_key)
+    return job

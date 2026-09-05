@@ -1,9 +1,13 @@
-"""Operator matcher: answer signed pin1 wants as the published PIN DID.
+"""Operator matcher: answer PIN jobs as the published PIN DID.
 
-Public board is Technocore room `pin` (same shape as flop's `tclk-offers`
-and the kibble work board). Money frames stay on `tclk-offers` with
-`job.proto=pin` — never as tclk1 lines inside `pin` or `kibble`.
-Owned control room is `d-pin`, claimed by the operator DID.
+Two entry paths, same settlement:
+
+* pin1 `want` on `/r/pin` (PIN-aware agents).
+* tclk1 `offer` on `/r/tclk-offers` with `job.proto=pin` and `job.context`
+  naming a published artifact (the kibble-shaped path — agents already
+  watch the money board).
+
+Money frames stay on `tclk-offers`. Never write tclk1 into `pin` or `kibble`.
 """
 
 from __future__ import annotations
@@ -18,6 +22,7 @@ from pin.lab import PinLab
 from pin.models import Quote, QuoteRequest, Receipt, SlaClass, Tier
 from pin.tclk_bind import TclkLock, maybe_reveal, mint_hashlock, pin_ok
 from pin.tclk_deal import payee_accept_offer, payee_settle_lines
+from pin.tclk_entry import resolve_pin_artifact
 from pin.tclk_frames import decode_frame as decode_tclk
 from pin.tclk_frames import encode_frame as encode_tclk
 from pin.venue import RoomRecord, Venue
@@ -85,6 +90,7 @@ class OperatorMatcher:
         self.tclk_secrets: dict[str, tuple[dict[str, Any], str]] = {}
         self.tclk_accepted_refs: set[str] = set()
         self.tclk_revealed: set[str] = set()
+        self.tclk_quoted: set[str] = set()
         self.since = 0
         self.tclk_since = 0
 
@@ -150,6 +156,7 @@ class OperatorMatcher:
                 if lines:
                     result.leaf0.append(lines[0])
                     result.receipts.append(lines[1])
+        self._quote_and_fill_tclk_entries(result)
         self._catch_up_tclk(result)
         return result
 
@@ -188,7 +195,7 @@ class OperatorMatcher:
             self.locks.setdefault(rebuilt.offer_id, mint_hashlock(rebuilt.flop_fee, rail="paper"))
 
 
-    def _quote_want(self, want: Pin1Frame, result: MatchStep) -> str | None:
+    def _quote_want(self, want: Pin1Frame, result: MatchStep, *, tclk_ref: str | None = None) -> str | None:
         if not want.nonce or want.nonce in self.quoted:
             return None
         if not want.artifact_id:
@@ -227,6 +234,7 @@ class OperatorMatcher:
                 flop_fee=quote.flop_fee,
                 ttl_sec=quote.ttl_sec,
                 rail="paper",
+                tclk_ref=tclk_ref,
             )
         )
         self.quoted[want.nonce] = quote
@@ -270,6 +278,8 @@ class OperatorMatcher:
             result.skipped.append("job-no-receipt")
             return []
         self.receipts_by_job[spec.job_id] = rec
+        if accept.job_id:
+            self.receipts_by_job[accept.job_id] = rec
         tclk_offer = self._find_tclk_offer(accept, spec.job_id)
         lock = self.locks.get(quote.offer_id)
         tclk_ref = tclk_offer["id"] if tclk_offer else (lock.statement if lock else None)
@@ -345,6 +355,64 @@ class OperatorMatcher:
             result.tclk_settles.append(line)
         if lines:
             self.tclk_revealed.add(contract)
+
+    def _quote_and_fill_tclk_entries(self, result: MatchStep) -> None:
+        """Kibble-shaped path: a proto=pin offer on tclk-offers is the want."""
+        for offer in list(self.tclk_offers.values()):
+            offer_id = str(offer["id"])
+            if offer.get("from") == self.ident.did:
+                continue
+            if offer_id in self.done_accepts:
+                continue
+            job = offer.get("job") or {}
+            if job.get("proto") != "pin":
+                continue
+            if not job.get("context"):
+                continue
+            resolved = resolve_pin_artifact(self.lab, job.get("context"))
+            if resolved is None:
+                result.skipped.append(f"tclk-unknown-artifact:{offer_id[:10]}")
+                continue
+            artifact_id, _key = resolved
+            payer = str(offer.get("from") or "")
+            if not payer.startswith("did:key:"):
+                result.skipped.append("tclk-offer-no-did")
+                continue
+            want = Pin1Frame(
+                type="want",
+                from_did=payer,
+                nonce=offer_id,
+                artifact_id=artifact_id,
+                tier="T1",
+                sla="interactive",
+                n_in=32,
+                n_out=48,
+            )
+            self.wants[offer_id] = want
+            if offer_id not in self.quoted:
+                line = self._quote_want(want, result, tclk_ref=offer_id)
+                if line:
+                    result.quotes.append(line)
+            quote = self.quoted.get(offer_id)
+            if quote is None:
+                continue
+            self.tclk_quoted.add(offer_id)
+            if quote.offer_id in self.done_accepts:
+                continue
+            accept = Pin1Frame(
+                type="accept",
+                from_did=payer,
+                nonce=_nonce(),
+                offer_id=quote.offer_id,
+                job_id=str(job.get("id") or ""),
+                jobspec_cid=str(job.get("id") or ""),
+                tclk_ref=offer_id,
+                rail="paper",
+            )
+            lines = self._fill_accept(accept, result)
+            if lines:
+                result.leaf0.append(lines[0])
+                result.receipts.append(lines[1])
 
     def _catch_up_tclk(self, result: MatchStep) -> None:
         """Accept a pin paper offer that arrived after the pin1 job already ran."""

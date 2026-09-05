@@ -232,7 +232,7 @@ def match_cmd(
     path: Path | None = typer.Option(None),
     base: str = typer.Option("https://technocore.chat"),
 ) -> None:
-    """One matcher step: quote signed wants, fill accepts, bind pin paper offers."""
+    """One matcher step: quote pin1 wants and proto=pin tclk offers, fill, bind paper."""
     from pin.identity import TCLK_OFFERS_ROOM, require_identity
     from pin.matcher import OperatorMatcher, ingest_json_messages
     from pin.technocore_client import fetch_room_json, post_signed_line
@@ -272,6 +272,60 @@ def match_cmd(
     )
     # JSON still must not contain a key that looks like a leak; drop seed
     raise typer.Exit(0)
+
+
+@app.command("offer")
+def offer_cmd(
+    artifact: str = typer.Option("8b-stock", help="Published key, key:name, or 64-hex artifact_id"),
+    amount: str = typer.Option("100", help="Paper amount (holds no value)"),
+    live: bool = typer.Option(False, help="Post the signed offer on live tclk-offers (opt-in)"),
+    path: Path | None = typer.Option(None),
+    base: str = typer.Option("https://technocore.chat"),
+) -> None:
+    """Post a tclk-first PIN bounty on tclk-offers. No /r/pin want required."""
+    from pin.identity import TCLK_OFFERS_ROOM, require_identity
+    from pin.tclk_entry import build_pin_bounty, pin_job_context, resolve_pin_artifact
+    from pin.tclk_frames import encode_frame as encode_tclk
+    from pin.technocore_client import post_signed_line
+
+    lab = PinLab()
+    resolved = resolve_pin_artifact(lab, artifact)
+    if resolved is None:
+        typer.echo(f"unknown artifact: {artifact}", err=True)
+        raise typer.Exit(2)
+    artifact_id, artifact_key = resolved
+    try:
+        ident = require_identity(path)
+    except IdentityError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(2) from exc
+    offer = build_pin_bounty(
+        from_did=ident.did,
+        context=pin_job_context(artifact_id=artifact_id),
+        amount=amount,
+    )
+    line = encode_tclk(offer)
+    payload = {
+        "room": TCLK_OFFERS_ROOM,
+        "rail": "paper",
+        "holds_value": False,
+        "from": ident.did,
+        "offer_id": offer["id"],
+        "job": offer.get("job"),
+        "artifact_id": artifact_id,
+        "artifact_key": artifact_key,
+        "line": line,
+        "live": False,
+    }
+    if not live:
+        typer.echo(json.dumps(payload, indent=2))
+        raise typer.Exit(0)
+    nonce = str(int(time.time() * 1000))
+    wr = post_signed_line(ident, room=TCLK_OFFERS_ROOM, text=line, nonce=nonce, base=base)
+    payload["live"] = True
+    payload["live_post"] = {"room": TCLK_OFFERS_ROOM, "status": wr.status, "body": wr.body[:200]}
+    typer.echo(json.dumps(payload, indent=2))
+    raise typer.Exit(0 if wr.status == 200 else 1)
 
 
 @app.command("tclk-demo")
