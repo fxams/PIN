@@ -14,6 +14,7 @@ import json
 import os
 import re
 import secrets
+import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -534,17 +535,19 @@ def publish_roster(
                 progress["pairs"] = sorted(done_pairs)
                 progress["offers"] = list(progress.get("offers", [])) + [str(offer["id"])]
                 save_publish_progress(dest, progress)
+            print(
+                f"roster pair {i}/{len(book)} offer={bought.status_code} quote={sold.status_code}",
+                file=sys.stderr,
+                flush=True,
+            )
             _note(buyer)
             _note(seller)
             posted.add(buyer.fingerprint)
             posted.add(seller.fingerprint)
             time.sleep(0.15)
-        for i, agent in enumerate(agents, start=1):
-            if agent.fingerprint in posted:
-                continue
-            _note(agent)
-            card = f"PIN {agent.role} {i}/{len(agents)} {agent.did} {note_token(agent.role)} t={nonce0}"
-            said = _say(client, origin, agent.ident, PIN_OPERATOR_ROOM, card, str(nonce0 + 8000 + i))
-            if said.status_code not in {200, 422}:
-                result.failed.append(f"card:{agent.fingerprint}:{said.status_code}")
+        if pairs is None:
+            for agent in agents:
+                if agent.fingerprint in posted:
+                    continue
+                _note(agent)
     return result

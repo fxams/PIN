@@ -151,6 +151,42 @@ def test_publish_roster_buyers_on_tclk_sellers_on_pin(tmp_path, monkeypatch):
     assert not any(t.startswith("pin1 ") for t in tclk_texts)
     assert not any(t.startswith("tclk1 ") for t in pin_texts)
     assert "seed" not in str(urls)
+    assert not any((b.get("text") or "").startswith("PIN buyer") for b in bodies)
+    assert not any((b.get("text") or "").startswith("PIN seller") for b in bodies)
+
+
+def test_publish_limited_pairs_skips_leftover_cards(tmp_path, monkeypatch):
+    op = init_identity(tmp_path / "op.json")
+    root = tmp_path / "roster"
+    agents = init_roster(root, buyers=2, sellers=2)
+    texts: list[str] = []
+
+    class _Resp:
+        def __init__(self, status: int = 200) -> None:
+            self.status_code = status
+            self.text = "ok"
+
+    class _Client:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args) -> None:
+            return None
+
+        def request(self, method: str, url: str, json=None, **kwargs):
+            texts.append((json or {}).get("text") or (json or {}).get("value") or "")
+            return _Resp()
+
+    monkeypatch.setattr("pin.roster.httpx.Client", _Client)
+    result = publish_roster(agents, op, pairs=1, base="https://technocore.chat", roster_dir=root)
+    assert result.buyer_offers_ok == 1
+    assert result.seller_quotes_ok == 1
+    assert sum(1 for t in texts if t.startswith("tclk1 ")) == 1
+    assert sum(1 for t in texts if t.startswith("pin1 ")) == 1
+    assert not any(t.startswith("PIN buyer") or t.startswith("PIN seller") for t in texts)
 
 
 def test_matcher_fills_seller_quote_without_requoting(tmp_path):
