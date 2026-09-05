@@ -1,5 +1,7 @@
 import json
 
+import httpx
+
 from pin.frames import decode_frame
 from pin.identity import TCLK_OFFERS_ROOM, init_identity
 from pin.lab import PinLab
@@ -12,9 +14,11 @@ from pin.roster import (
     init_roster,
     load_roster,
     pair_book,
+    pair_key,
     preview_roster,
     publish_roster,
     roster_note_body,
+    save_publish_progress,
 )
 from pin.tclk_frames import decode_frame as decode_tclk
 
@@ -126,13 +130,13 @@ def test_publish_roster_buyers_on_tclk_sellers_on_pin(tmp_path, monkeypatch):
         def __exit__(self, *args) -> None:
             return None
 
-        def request(self, method: str, url: str, json=None):
+        def request(self, method: str, url: str, json=None, **kwargs):
             urls.append(url)
             bodies.append(json or {})
             return _Resp()
 
     monkeypatch.setattr("pin.roster.httpx.Client", _Client)
-    result = publish_roster(agents, op, pairs=1, base="https://technocore.chat")
+    result = publish_roster(agents, op, pairs=1, base="https://technocore.chat", roster_dir=root)
     assert result.buyer_offers_ok == 1
     assert result.seller_quotes_ok == 1
     assert result.notes_ok == 2
@@ -164,3 +168,80 @@ def test_matcher_fills_seller_quote_without_requoting(tmp_path):
     assert step.tclk_accepts
     receipt = decode_frame(step.receipts[0])
     assert receipt.tclk_ref == offer["id"]
+
+
+def test_publish_retries_timeouts_then_posts(tmp_path, monkeypatch):
+    op = init_identity(tmp_path / "op.json")
+    root = tmp_path / "roster"
+    agents = init_roster(root, buyers=1, sellers=1)
+    hits = {"n": 0}
+
+    class _Resp:
+        def __init__(self, status: int = 200) -> None:
+            self.status_code = status
+            self.text = "ok"
+
+    class _Client:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args) -> None:
+            return None
+
+        def request(self, method: str, url: str, json=None, **kwargs):
+            hits["n"] += 1
+            if hits["n"] == 1:
+                raise httpx.ReadTimeout("slow")
+            if hits["n"] == 2:
+                return _Resp(503)
+            return _Resp()
+
+    monkeypatch.setattr("pin.roster.httpx.Client", _Client)
+    monkeypatch.setattr("pin.roster.time.sleep", lambda *_a, **_k: None)
+    result = publish_roster(agents, op, pairs=1, base="https://technocore.chat", roster_dir=root)
+    assert result.buyer_offers_ok == 1
+    assert result.seller_quotes_ok == 1
+    assert result.roster_status == 200
+    assert hits["n"] >= 3
+
+
+def test_publish_resumes_completed_pairs(tmp_path, monkeypatch):
+    op = init_identity(tmp_path / "op.json")
+    root = tmp_path / "roster"
+    agents = init_roster(root, buyers=1, sellers=1)
+    buyer, seller = pair_book(agents, pairs=1)[0]
+    save_publish_progress(
+        root,
+        {"notes": [buyer.fingerprint, seller.fingerprint], "pairs": [pair_key(buyer, seller)], "offers": ["0xabc"]},
+    )
+    urls: list[str] = []
+
+    class _Resp:
+        def __init__(self, status: int = 200) -> None:
+            self.status_code = status
+            self.text = "ok"
+
+    class _Client:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args) -> None:
+            return None
+
+        def request(self, method: str, url: str, json=None, **kwargs):
+            urls.append(url)
+            return _Resp()
+
+    monkeypatch.setattr("pin.roster.httpx.Client", _Client)
+    result = publish_roster(agents, op, pairs=1, base="https://technocore.chat", roster_dir=root)
+    assert result.skipped_pairs == 1
+    assert result.buyer_offers_ok == 1
+    assert result.seller_quotes_ok == 1
+    assert not any(u.endswith("/r/tclk-offers") for u in urls)
+    assert not any("/kv/did-" in u for u in urls)

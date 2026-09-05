@@ -45,6 +45,7 @@ MAX_SIDE = 125
 WAIT_RE = re.compile(r"(\d+)")
 ROLES = frozenset({"buyer", "seller"})
 ARTIFACT_KEYS = ("8b-stock", "70b-stock")
+PROGRESS_NAME = "publish.json"
 
 
 @dataclass
@@ -340,7 +341,9 @@ class RosterPublish:
     notes_ok: int = 0
     buyer_offers_ok: int = 0
     seller_quotes_ok: int = 0
+    skipped_pairs: int = 0
     failed: list[str] = field(default_factory=list)
+    offer_ids: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -350,10 +353,41 @@ class RosterPublish:
             "notes_ok": self.notes_ok,
             "buyer_offers_ok": self.buyer_offers_ok,
             "seller_quotes_ok": self.seller_quotes_ok,
+            "skipped_pairs": self.skipped_pairs,
             "failed": self.failed,
+            "offer_ids": self.offer_ids,
             "live": True,
             "holds_value": False,
         }
+
+
+def _progress_path(root: Path) -> Path:
+    return root / PROGRESS_NAME
+
+
+def load_publish_progress(root: Path) -> dict[str, Any]:
+    path = _progress_path(root)
+    if not path.exists():
+        return {"notes": [], "pairs": [], "offers": []}
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        return {"notes": [], "pairs": [], "offers": []}
+    return {
+        "notes": [str(x) for x in data.get("notes", [])],
+        "pairs": [str(x) for x in data.get("pairs", [])],
+        "offers": [str(x) for x in data.get("offers", [])],
+    }
+
+
+def save_publish_progress(root: Path, progress: dict[str, Any]) -> None:
+    dest = _progress_path(root)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(json.dumps(progress, indent=2) + "\n", encoding="utf-8")
+    os.chmod(dest, 0o600)
+
+
+def pair_key(buyer: RosterAgent, seller: RosterAgent) -> str:
+    return f"{buyer.fingerprint}:{seller.fingerprint}"
 
 
 def _wait_seconds(resp: httpx.Response) -> float:
@@ -363,14 +397,29 @@ def _wait_seconds(resp: httpx.Response) -> float:
     return float(match.group(1)) if match else 2.0
 
 
-def _post_with_retry(client: httpx.Client, method: str, url: str, json_body: dict[str, Any]) -> httpx.Response:
+def _retryable(resp: httpx.Response) -> bool:
+    return resp.status_code in {0, 429} or resp.status_code >= 500
+
+
+def _post_with_retry(
+    client: httpx.Client,
+    method: str,
+    url: str,
+    json_body: dict[str, Any],
+    *,
+    timeout: float = 20.0,
+    attempts: int = 6,
+) -> httpx.Response:
     delay = 1.0
-    last = None
-    for _ in range(6):
-        last = client.request(method, url, json=json_body)
-        if last.status_code != 429:
+    last: httpx.Response | None = None
+    for _ in range(attempts):
+        try:
+            last = client.request(method, url, json=json_body, timeout=timeout)
+        except httpx.HTTPError as exc:
+            last = httpx.Response(0, text=str(exc))
+        if last is not None and not _retryable(last):
             return last
-        time.sleep(max(_wait_seconds(last), delay))
+        time.sleep(max(_wait_seconds(last) if last is not None else 0, delay))
         delay = min(delay * 2, 16)
     assert last is not None
     return last
@@ -399,9 +448,14 @@ def publish_roster(
     *,
     pairs: int | None = None,
     base: str = DEFAULT_BASE,
-    timeout: float = 60.0,
+    timeout: float = 90.0,
+    roster_dir: Path | None = None,
 ) -> RosterPublish:
     origin = base.rstrip("/")
+    dest = roster_dir or default_roster_dir()
+    progress = load_publish_progress(dest)
+    done_pairs = set(progress["pairs"])
+    done_notes = set(progress["notes"])
     book = pair_book(agents, pairs=pairs)
     nonce0 = int(time.time() * 1000)
     lab = PinLab()
@@ -419,41 +473,53 @@ def publish_roster(
             result.failed.append(f"roster-note:{roster.status_code}")
         n_buyers = sum(1 for a in agents if a.role == "buyer")
         n_sellers = sum(1 for a in agents if a.role == "seller")
-        op_text = operator_roster_line(operator, buyers=n_buyers, sellers=n_sellers)
+        op_text = f"{operator_roster_line(operator, buyers=n_buyers, sellers=n_sellers)} t={nonce0}"
         op = _say(client, origin, operator, PIN_OPERATOR_ROOM, op_text, str(nonce0))
         result.operator_status = op.status_code
-        if op.status_code != 200:
+        if op.status_code not in {200, 422}:
             result.failed.append(f"operator-room:{op.status_code}")
-        posted = {agent.fingerprint for pair in book for agent in pair}
-        for i, agent in enumerate(agents, start=1):
+
+        def _note(agent: RosterAgent) -> None:
+            if agent.fingerprint in done_notes:
+                result.notes_ok += 1
+                return
             ns, key = did_note_parts(agent.fingerprint)
             note = _post_with_retry(
                 client,
                 "POST",
                 f"{origin}/kv/{ns}/{key}",
                 {"value": f"{agent.did} {note_token(agent.role)}", "if_absent": True},
+                timeout=12.0,
+                attempts=3,
             )
             if note.status_code in {200, 409}:
                 result.notes_ok += 1
+                done_notes.add(agent.fingerprint)
+                progress["notes"] = sorted(done_notes)
+                save_publish_progress(dest, progress)
             else:
                 result.failed.append(f"note:{agent.fingerprint}:{note.status_code}")
-            if agent.fingerprint in posted:
-                continue
-            # Unpaired leftover: role card on /r/pin only.
-            card = f"PIN {agent.role} {i}/{len(agents)} {agent.did} {note_token(agent.role)}"
-            said = _say(client, origin, agent.ident, PIN_OPERATOR_ROOM, card, str(nonce0 + 8000 + i))
-            if said.status_code != 200:
-                result.failed.append(f"card:{agent.fingerprint}:{said.status_code}")
+
+        posted: set[str] = set()
         for i, (buyer, seller) in enumerate(book, start=1):
-            key = keys[(i - 1) % len(keys)]
-            offer_line, quote_line, _offer = build_pair_frames(
-                buyer, seller, lab=lab, artifact_key=key
+            key = pair_key(buyer, seller)
+            artifact = keys[(i - 1) % len(keys)]
+            if key in done_pairs:
+                result.buyer_offers_ok += 1
+                result.seller_quotes_ok += 1
+                result.skipped_pairs += 1
+                posted.add(buyer.fingerprint)
+                posted.add(seller.fingerprint)
+                continue
+            offer_line, quote_line, offer = build_pair_frames(
+                buyer, seller, lab=lab, artifact_key=artifact
             )
             bought = _say(
                 client, origin, buyer.ident, TCLK_OFFERS_ROOM, offer_line, str(nonce0 + i)
             )
             if bought.status_code == 200:
                 result.buyer_offers_ok += 1
+                result.offer_ids.append(str(offer["id"]))
             else:
                 result.failed.append(f"offer:{buyer.fingerprint}:{bought.status_code}")
             sold = _say(
@@ -463,4 +529,22 @@ def publish_roster(
                 result.seller_quotes_ok += 1
             else:
                 result.failed.append(f"quote:{seller.fingerprint}:{sold.status_code}")
+            if bought.status_code == 200 and sold.status_code == 200:
+                done_pairs.add(key)
+                progress["pairs"] = sorted(done_pairs)
+                progress["offers"] = list(progress.get("offers", [])) + [str(offer["id"])]
+                save_publish_progress(dest, progress)
+            _note(buyer)
+            _note(seller)
+            posted.add(buyer.fingerprint)
+            posted.add(seller.fingerprint)
+            time.sleep(0.15)
+        for i, agent in enumerate(agents, start=1):
+            if agent.fingerprint in posted:
+                continue
+            _note(agent)
+            card = f"PIN {agent.role} {i}/{len(agents)} {agent.did} {note_token(agent.role)} t={nonce0}"
+            said = _say(client, origin, agent.ident, PIN_OPERATOR_ROOM, card, str(nonce0 + 8000 + i))
+            if said.status_code not in {200, 422}:
+                result.failed.append(f"card:{agent.fingerprint}:{said.status_code}")
     return result

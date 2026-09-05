@@ -297,12 +297,12 @@ def roster_publish(
     if not live:
         typer.echo(json.dumps(preview, indent=2))
         raise typer.Exit(0)
-    result = publish_roster(agents, operator, pairs=pairs, base=base)
+    result = publish_roster(agents, operator, pairs=pairs, base=base, roster_dir=roster_dir)
     payload = {**preview, **result.as_dict()}
     payload.pop("sample", None)
     typer.echo(json.dumps(payload, indent=2))
     ok = (
-        result.operator_status == 200
+        result.operator_status in {200, 422}
         and result.buyer_offers_ok == preview["pairs"]
         and result.seller_quotes_ok == preview["pairs"]
     )
