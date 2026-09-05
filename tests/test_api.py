@@ -51,7 +51,7 @@ def test_fetch_only_agent_lanes():
     assert skill.status_code == 200
     assert "pin1" in skill.text
     card = client.get("/.well-known/agent.json").json()
-    assert card["conventions"]["tclk_rail"] == "flop-htlc"
+    assert card["conventions"]["tclk_rail"] == "paper"
     assert card["trust"]["contracts_on_flop"] is False
     caps = client.get("/pin/capabilities").json()
     assert caps["coordination"] == "technocore"
@@ -63,6 +63,6 @@ def test_fetch_only_agent_lanes():
     assert job["status"] == "paid"
     assert job["tclk_revealed"] is True
     assert job["frames"][0].startswith("pin1 ")
-    room = client.get("/r/pin-jobs")
+    room = client.get("/r/pin")
     assert room.status_code == 200
     assert "pin1 " in room.text

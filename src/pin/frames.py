@@ -1,7 +1,8 @@
 """pin1 frames: Technocore room messages that coordinate a PIN job.
 
 Same split as tclk/1: the room orders what was agreed; Flop holds the session
-escrow; tclk/flop-htlc holds the money. Technocore settles nothing.
+escrow; tclk paper (then flop-htlc, when shipped) holds the money. Technocore
+settles nothing.
 
 A frame is the 5 chars `pin1 ` plus canonical JSON (sorted keys, ASCII).
 Unsigned frames are data, not commitments — folders drop them.

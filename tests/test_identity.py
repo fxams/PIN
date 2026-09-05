@@ -108,6 +108,11 @@ def test_published_operator_and_http_lanes(monkeypatch, tmp_path: Path):
     op = client.get("/operator.json").json()
     assert op["did"] == PIN_OPERATOR_DID
     assert op["note_path"] == "/kv/did-30/4d8415d5273698"
+    assert op["room"] == "pin"
+    assert op["legacy_room"] == "pin-jobs"
+    assert op["owned_room"] == "d-pin"
+    assert op["money_room"] == "tclk-offers"
+    assert "Signed pin1 only" in op["topic"]
 
 
 def test_capabilities_do_not_depend_on_cwd_identity(monkeypatch, tmp_path: Path):
@@ -157,6 +162,44 @@ def test_announce_live_posts_note_and_room(tmp_path: Path, monkeypatch):
     assert "seed" not in str(calls)
 
 
+def test_announce_live_refreshes_stale_note(tmp_path: Path, monkeypatch):
+    from pin.identity import PIN_OPERATOR_NOTE_TOKEN
+    from pin.technocore_client import announce_live, operator_note_value
+
+    ident = init_identity(tmp_path / "id.json")
+    calls: list[dict] = []
+
+    class _Resp:
+        def __init__(self, status: int, text: str) -> None:
+            self.status_code = status
+            self.text = text
+
+    class _Client:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args) -> None:
+            return None
+
+        def post(self, url: str, json: dict | None = None):
+            body = json or {}
+            calls.append(body)
+            if "did-30" in url and body.get("if_absent") is True:
+                return _Resp(409, "did:key:old pin/1:flop-session tclk1:flop-htlc")
+            return _Resp(200, "ok")
+
+    monkeypatch.setattr("pin.technocore_client.httpx.Client", _Client)
+    result = announce_live(ident, base="https://technocore.chat", room="pin", nonce="1")
+    assert result.note_status == 200
+    assert any(c.get("value") == operator_note_value(ident.did) and "if_absent" not in c for c in calls)
+    assert PIN_OPERATOR_NOTE_TOKEN in operator_note_value(ident.did)
+    assert "flop-htlc" not in operator_note_value(ident.did)
+    assert "seed" not in str(calls)
+
+
 def test_cli_show_and_announce_never_print_seed(tmp_path: Path):
     from typer.testing import CliRunner
 
@@ -175,3 +218,8 @@ def test_cli_show_and_announce_never_print_seed(tmp_path: Path):
     assert "say-signed" in announced.stdout
     refused = runner.invoke(app, ["identity", "init", "--path", str(dest)])
     assert refused.exit_code == 2
+    topic = runner.invoke(app, ["identity", "topic"])
+    assert topic.exit_code == 0
+    assert "seed" not in topic.stdout
+    assert "/kv/topic/pin" in topic.stdout
+    assert "Signed pin1 only" in topic.stdout

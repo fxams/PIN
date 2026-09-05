@@ -34,6 +34,12 @@ pin serve --host 127.0.0.1 --port 8787
 - The published operator DID is public (`docs/operator-did.md`, `GET /operator.json`).
   Never commit `.pin/` or `PIN_SIGNING_KEY`. Identity tests use a temp file, not the
   operator seed. `pin identity show` must never print a seed.
+- `pin match` answers `pin`. Do not write `tclk1` into `pin` or `kibble`.
+  Money frames belong on flop's `tclk-offers` with `job.proto=pin` and rail `paper`.
+  `pin match --live` reads both rooms and posts `tclk1` only to `tclk-offers`.
+  `flop-htlc` is reserved and does not hold value yet. Owned room is `d-pin`.
+  `pin-jobs` is retired (first write was an ephemeral DID). `pin tclk-demo` is
+  the in-process paper deal; `--live` is opt-in.
 - PIN never tells the buyer the price is “N FLOPs.” Quotes are USD micros; the Flop fee field
   is only the chain meter + escrow.
 - T1 in this lab is economic-optimistic. Flop’s SOFT dispute wiring is still draft; do not
