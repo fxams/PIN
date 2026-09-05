@@ -23,7 +23,9 @@ from pin.models import Receipt
 
 app = typer.Typer(no_args_is_help=True, add_completion=False, help="PIN — Pinned Inference on Flop")
 identity_app = typer.Typer(no_args_is_help=True, help="Persistent did:key (seed stays off git).")
+roster_app = typer.Typer(no_args_is_help=True, help="Owned agent roster for /r/pin (seeds stay off git).")
 app.add_typer(identity_app, name="identity")
+app.add_typer(roster_app, name="roster")
 
 
 @app.command()
@@ -224,6 +226,60 @@ def identity_topic(
     result = set_topic(room=room, value=text, base=base, if_absent=if_absent)
     typer.echo(json.dumps({"status": result.status, "body": result.body, "room": room, "text": text}, indent=2))
     raise typer.Exit(0 if result.status in {200, 409} else 1)
+
+
+@roster_app.command("init")
+def roster_init(
+    count: int = typer.Option(100, help="How many owned identities to keep (1-250)"),
+    roster_dir: Path | None = typer.Option(None, help="Default .pin/roster"),
+) -> None:
+    """Create owned roster identities. Seeds stay in .pin/roster (gitignored)."""
+    from pin.roster import init_roster, public_entries
+
+    idents = init_roster(roster_dir, count=count)
+    typer.echo(json.dumps({"n": len(idents), "agents": public_entries(idents), "seed": False}, indent=2))
+
+
+@roster_app.command("show")
+def roster_show(roster_dir: Path | None = typer.Option(None)) -> None:
+    """Print public roster DIDs. Never prints a seed."""
+    from pin.roster import load_roster, public_entries
+
+    idents = load_roster(roster_dir)
+    typer.echo(json.dumps({"n": len(idents), "agents": public_entries(idents)}, indent=2))
+    if not idents:
+        raise typer.Exit(1)
+
+
+@roster_app.command("publish")
+def roster_publish(
+    live: bool = typer.Option(False, help="Post the roster on live /r/pin (opt-in)"),
+    posts: int | None = typer.Option(None, help="How many agents post (default: all)"),
+    path: Path | None = typer.Option(None, help="Operator identity"),
+    roster_dir: Path | None = typer.Option(None),
+    base: str = typer.Option("https://technocore.chat"),
+) -> None:
+    """Post unique signed roster lines in /r/pin and publish /kv/pin/roster."""
+    from pin.identity import require_identity
+    from pin.roster import init_roster, load_roster, preview_roster, publish_roster
+
+    try:
+        operator = require_identity(path)
+    except IdentityError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(2) from exc
+    idents = load_roster(roster_dir)
+    if not idents:
+        idents = init_roster(roster_dir, count=100)
+    preview = preview_roster(idents, operator, posts=posts)
+    if not live:
+        typer.echo(json.dumps(preview, indent=2))
+        raise typer.Exit(0)
+    result = publish_roster(idents, operator, posts=posts, base=base)
+    payload = {**preview, **result.as_dict(), "agents": preview["agents"]}
+    payload.pop("sample_lines", None)
+    typer.echo(json.dumps(payload, indent=2))
+    raise typer.Exit(0 if result.rooms_ok == preview["posts"] and result.operator_status == 200 else 1)
 
 
 @app.command("advertise")

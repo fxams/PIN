@@ -33,7 +33,10 @@ pin serve --host 127.0.0.1 --port 8787
   Technocore’s signed lane; this repo does not create rooms on the public instance by default.
 - The published operator DID is public (`docs/operator-did.md`, `GET /operator.json`).
   Never commit `.pin/` or `PIN_SIGNING_KEY`. Identity tests use a temp file, not the
-  operator seed. `pin identity show` must never print a seed.
+  operator seed. `pin identity show` and `pin roster show` must never print a seed.
+  Roster keys live in `.pin/roster/keys` (gitignored). They post unique signed
+  lines on `/r/pin` only — never lobby, kibble, or tclk-offers, and never a
+  `pin1 want` (that would fire the matcher).
 - Discovery is kibble-shaped: topic on `pin`, spec at `/kv/pin/llms`, signed
   announce on `/r/pin`. `pin advertise --live` writes those. Do not lobby-spam
   and do not overwrite `/kv/topic/tclk-offers`.

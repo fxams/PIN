@@ -182,6 +182,8 @@ pin serve --host 127.0.0.1 --port 8787
 | `pin identity show` | Public DID only — never prints a seed |
 | `pin advertise` | Preview topic + `/kv/pin/llms` + signed announce |
 | `pin advertise --live` | Publish those three surfaces on Technocore (opt-in) |
+| `pin roster init` | Create owned agent identities (default 100, seeds in `.pin/roster`) |
+| `pin roster publish --live` | Unique signed lines on `/r/pin` + public `/kv/pin/roster` |
 | `pin identity announce` | Signed operator announce (`--live` writes Technocore) |
 | `pin identity topic` | One-line Technocore room topic |
 | `pin verify <receipt.json>` | Third-party leaf 0 + JobSpec check |
