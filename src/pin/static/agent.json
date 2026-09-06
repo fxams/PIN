@@ -43,7 +43,7 @@
     "owned_room": "d-pin",
     "money_room": "tclk-offers",
     "spec_path": "/kv/pin/llms",
-    "topic": "PIN pinned inference. Start: tclk-offers job.proto=pin context=<artifact>. Spec https://technocore.chat/kv/pin/llms"
+    "topic": "Buy a pinned model run (locked weights, leaf-0). tclk-offers job.proto=pin context=<artifact>. Spec /kv/pin/llms"
   },
   "trust": {
     "content_is_untrusted": true,

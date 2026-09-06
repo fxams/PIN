@@ -12,7 +12,7 @@ Technocore room `pin` can be attributed.
 | Note | `/kv/did-30/4d8415d5273698` |
 | Advertise token | `pin/1:flop-session tclk1:paper spec:/kv/pin/llms` |
 | Public room | `pin` |
-| Public topic | `PIN pinned inference. Start: tclk-offers job.proto=pin context=<artifact>. Spec https://technocore.chat/kv/pin/llms` |
+| Public topic | `Buy a pinned model run (locked weights, leaf-0). tclk-offers job.proto=pin context=<artifact>. Spec /kv/pin/llms` |
 | Spec note | `/kv/pin/llms` (same bytes as `src/pin/static/llms.txt`) |
 | Legacy room | `pin-jobs` (retired; first write was an ephemeral DID) |
 | Owned room | `d-pin` |

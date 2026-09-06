@@ -9,6 +9,7 @@ from pin.identity import (
     ENV_SIGNING_KEY,
     PIN_OPERATOR_DID,
     PIN_OPERATOR_FINGERPRINT,
+    PIN_PUBLIC_TOPIC,
     IdentityError,
     init_identity,
     load_identity,
@@ -113,6 +114,9 @@ def test_published_operator_and_http_lanes(monkeypatch, tmp_path: Path):
     assert op["owned_room"] == "d-pin"
     assert op["money_room"] == "tclk-offers"
     assert "job.proto=pin" in op["topic"]
+    assert op["topic"].startswith("Buy a pinned model run")
+    assert PIN_PUBLIC_TOPIC == op["topic"]
+    assert "https://technocore.chat" not in op["topic"]
     assert op["spec_path"] == "/kv/pin/llms"
 
 

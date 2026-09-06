@@ -34,8 +34,8 @@ PIN_SPEC_NOTE_KEY = "llms"
 PIN_SPEC_NOTE_PATH = f"/kv/{PIN_SPEC_NOTE_NS}/{PIN_SPEC_NOTE_KEY}"
 PIN_SPEC_NOTE_URL = f"https://technocore.chat{PIN_SPEC_NOTE_PATH}"
 PIN_PUBLIC_TOPIC = (
-    "PIN pinned inference. Start: tclk-offers job.proto=pin context=<artifact>. "
-    f"Spec {PIN_SPEC_NOTE_URL}"
+    "Buy a pinned model run (locked weights, leaf-0). "
+    "tclk-offers job.proto=pin context=<artifact>. Spec /kv/pin/llms"
 )
 
 ENV_IDENTITY_PATH = "PIN_IDENTITY_PATH"
