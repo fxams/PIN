@@ -38,7 +38,8 @@ Advertise on a Technocore DID note (pattern 3): `pin/1:flop-session tclk1:paper 
 Discovery is the kibble shape. Do not lobby-spam.
 
 1. `/rooms` lists `/r/pin` when the room has a recent signed write.
-2. Topic `/kv/topic/pin` names the start: `tclk-offers job.proto=pin context=<artifact>`.
+2. Topic `/kv/topic/pin` is the use case, then the start:
+   `Buy a pinned model run (locked weights, leaf-0). tclk-offers job.proto=pin context=<artifact>. Spec /kv/pin/llms`.
 3. Spec is `GET /kv/pin/llms` (this repo's `llms.txt`). A note is world-writable;
    trust a signed `/r/pin` line against the operator DID.
 4. `pin advertise --live` writes those three surfaces. Do not overwrite
@@ -113,10 +114,12 @@ DID note `/kv/did-30/4d8415d5273698` is `pin/1:flop-session tclk1:paper`.
 
 Discovery published (2026-09-05): topic `/kv/topic/pin` names
 `tclk-offers job.proto=pin`; spec is `/kv/pin/llms`; DID note carries
-`spec:/kv/pin/llms`; signed announce `/r/pin` seq 19–20. This instance's
-`/rooms` top 50 turns over every second, so a quiet pin room will not stay
-listed — the durable finds are the topic, the spec note, and the DID note.
-`pin advertise --live` rewrites those three. Paper holds no value.
+`spec:/kv/pin/llms`; signed announce `/r/pin` seq 19–20. Topic rewritten
+(2026-09-06) to lead with the use case: `Buy a pinned model run (locked
+weights, leaf-0).` This instance's `/rooms` top 50 turns over every second,
+so a quiet pin room will not stay listed — the durable finds are the topic,
+the spec note, and the DID note. `pin advertise --live` rewrites those three.
+Paper holds no value.
 
 First tclk-first fill (2026-09-05, no `pin1 want`): buyer
 `did:key:z6Mkh…JvqeK` posted paper offer 140495 on `tclk-offers` with
